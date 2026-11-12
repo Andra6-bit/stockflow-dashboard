@@ -1758,3 +1758,111 @@ body[data-mode="live"] #heroCta,
 body[data-mode="live"] [data-section="simulator"] {
   display: none !important;
 }
+
+/* =========================================================
+   HARDWARE CONTROL PANEL & MOTOR CONTROLS
+   ========================================================= */
+.control-panel {
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+}
+
+.control-panel-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.control-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.control-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: var(--muted);
+  transition: all 0.3s ease;
+}
+
+.control-icon.running {
+  background: rgba(30, 170, 120, 0.15);
+  color: var(--green);
+  animation: spinSlow 3s linear infinite;
+}
+
+.control-icon.stopped {
+  background: rgba(227, 93, 103, 0.15);
+  color: var(--red);
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.control-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-title-row h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.control-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(227, 93, 103, 0.28);
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #cf4953;
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(30, 170, 120, 0.28);
+  transition: all 0.2s ease;
+}
+
+.btn-success:hover {
+  background: #189367;
+  transform: translateY(-1px);
+}
+
+.pill.beban {
+  background: rgba(71, 120, 237, 0.14);
+  color: var(--blue);
+}
+

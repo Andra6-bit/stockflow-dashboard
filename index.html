@@ -99,6 +99,34 @@
       </div>
     </section>
 
+    <!-- KONTROL CEPAT HARDWARE (ESP8266 & MOTOR KONVEYOR) -->
+    <section class="panel control-panel" id="conveyorControl">
+      <div class="control-panel-inner">
+        <div class="control-status">
+          <div class="control-icon" id="motorStatusIcon">⚙</div>
+          <div>
+            <div class="eyebrow">PENGENDALIAN HARDWARE · ESP8266</div>
+            <div class="control-title-row">
+              <h3>Motor Dinamo Konveyor</h3>
+              <span class="status-badge unknown" id="motorBadge">MEMUAT STATUS...</span>
+            </div>
+            <p class="muted" id="motorStatusText">Kendalikankan dinamo konveyor dan catat log penimbangan langsung dari web.</p>
+          </div>
+        </div>
+        <div class="control-actions">
+          <button type="button" class="btn btn-danger" id="motorStopBtn" title="Hentikan dinamo konveyor seketika (STOP)">
+            🛑 Hentikan Motor
+          </button>
+          <button type="button" class="btn btn-success" id="motorStartBtn" title="Jalankan dinamo konveyor (RUN)">
+            ▶ Jalankan Motor
+          </button>
+          <button type="button" class="btn btn-primary" id="logWeightQuickBtn" title="Catat beban timbangan saat ini ke log">
+            ⚖ Catat Log Beban
+          </button>
+        </div>
+      </div>
+    </section>
+
     <section class="stats-grid">
       <article class="stat-card clickable" data-filter="all" title="Klik untuk menampilkan semua paket">
         <div class="stat-top"><span>Total paket</span><span class="stat-icon blue">▤</span></div>
@@ -231,6 +259,7 @@
             </div>
             <div class="panel-actions">
               <span class="count-tag" id="logCount">0 RECORD</span>
+              <button type="button" class="btn btn-primary btn-sm" id="logWeightTableBtn" title="Catat beban saat ini ke log">⚖ + Log Beban</button>
               <button type="button" class="btn btn-quiet btn-sm" id="exportCsvBtn" title="Unduh log sebagai CSV">⬇ CSV</button>
             </div>
           </div>
@@ -241,11 +270,13 @@
               <button type="button" class="f-pill active" data-val="all">Semua</button>
               <button type="button" class="f-pill" data-val="valid">Valid</button>
               <button type="button" class="f-pill" data-val="reject">Reject</button>
+              <button type="button" class="f-pill" data-val="beban">Beban Saja</button>
             </div>
             <select id="statusFilter" aria-label="Filter status">
               <option value="all">Semua status</option>
               <option value="valid">Valid</option>
               <option value="reject">Anomali / Reject</option>
+              <option value="beban">Beban Saja</option>
             </select>
           </div>
 
@@ -352,6 +383,14 @@
             <small>SERVO SG90</small>
             <b id="servoState">Tidak diketahui</b>
             <span id="servoDetail">Status belum dikirim</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol" id="motorSymbol">⚡</div>
+          <div>
+            <small>MOTOR KONVEYOR</small>
+            <b id="espMotorState">Tidak diketahui</b>
+            <span id="espMotorDetail">Kontrol dari web</span>
           </div>
         </div>
         <div class="device-item">

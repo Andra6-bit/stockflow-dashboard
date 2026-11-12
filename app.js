@@ -6,6 +6,7 @@
     const now = Date.now();
     return [
       { UID: "E280115A", Bobot: 248.5, Timestamp: now - 45000, Status: "Valid", Produk: "Produk A", BeratStandar: 250 },
+      { UID: "BEBAN-ONLY", Bobot: 172.6, Timestamp: now - 95000, Status: "Beban Saja", Produk: "Penimbangan Langsung", BeratStandar: null },
       { UID: "04A1B2C3", Bobot: 318.2, Timestamp: now - 165000, Status: "Anomali", Produk: "Produk B", BeratStandar: 280 },
       { UID: "AABB1020", Bobot: 150.4, Timestamp: now - 340000, Status: "Valid", Produk: "Produk C", BeratStandar: 150 },
       { UID: "E28011FF", Bobot: 89.4, Timestamp: now - 580000, Status: "Reject", Produk: "Produk D", BeratStandar: 120 },
@@ -20,6 +21,8 @@
     demoLogs: createSampleLogs(),
     device: null,
     demoFaults: { rfidErr: false, scaleErr: false, weakWifi: false },
+    motorRunning: false,
+    motorSpeed: 255,
     filterStatus: "all",
     sortBy: "time",
     sortDir: "desc",
@@ -67,6 +70,7 @@
 
   function statusOf(x) {
     const s = String(x.Status ?? x.status ?? x.klasifikasi ?? x.result ?? "").toLowerCase();
+    if (["beban", "weight", "load"].some(k => s.includes(k))) return "beban";
     if (["valid", "normal", "accepted", "pass", "ok"].some(k => s.includes(k))) return "valid";
     if (["anomali", "reject", "invalid", "abnormal", "rejected"].some(k => s.includes(k))) return "reject";
     if (s.includes("test")) return "test";
@@ -78,7 +82,11 @@
   }
 
   function labelOf(st) {
-    return st === "valid" ? "VALID" : st === "reject" ? "ANOMALI / REJECT" : st === "test" ? "SENSOR TEST" : "BELUM DIKETAHUI";
+    return st === "valid" ? "VALID"
+      : st === "reject" ? "ANOMALI / REJECT"
+      : st === "beban" ? "BEBAN SAJA"
+      : st === "test" ? "SENSOR TEST"
+      : "BELUM DIKETAHUI";
   }
 
   function normalize(raw) {
@@ -310,7 +318,7 @@
       return `<tr class="log-row ${isNew ? "row-new" : ""}" data-id="${safe(x._id)}">
         <td>${safe(uidOf(x))}<span class="uid-sub">${safe(productOf(x))}</span></td>
         <td><span class="weight">${Number.isFinite(w) ? w.toFixed(1) + " g" : "—"}</span></td>
-        <td><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : ""}">${label}</span></td>
+        <td><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : st === "beban" ? "beban" : ""}">${label}</span></td>
         <td>${safe(fmtTime(x._time ?? x.Timestamp))}</td>
       </tr>`;
     }).join("");
@@ -478,9 +486,38 @@
       else if (rssi > -82) bars.classList.add("lvl-2");
       else bars.classList.add("lvl-1");
     }
+
+    // Motor Konveyor
+    const motorRun = live?.motorRunning ?? (state.mode === "demo" ? state.motorRunning : false);
+    const motorSpd = live?.motorSpeed ?? (state.mode === "demo" ? state.motorSpeed : 0);
+    const mBadge = $("motorBadge");
+    const mIcon = $("motorStatusIcon");
+    const mText = $("motorStatusText");
+    const mState = $("espMotorState");
+    const mDetail = $("espMotorDetail");
+
+    if (mBadge) {
+      mBadge.textContent = !online && state.mode !== "demo" ? "PERANGKAT OFFLINE" : (motorRun ? "MOTOR BERJALAN" : "MOTOR BERHENTI");
+      mBadge.className = "status-badge " + (online || state.mode === "demo" ? (motorRun ? "online" : "offline") : "unknown");
+    }
+    if (mIcon) {
+      mIcon.className = "control-icon " + (motorRun ? "running" : "stopped");
+    }
+    if (mText) {
+      mText.textContent = motorRun
+        ? `Dinamo konveyor sedang berjalan aktif (Kecepatan PWM ${motorSpd || 255}).`
+        : `Dinamo konveyor dalam posisi berhenti (STOP).`;
+    }
+    if (mState) {
+      mState.textContent = live === null ? "Tidak diketahui" : (motorRun ? "Berjalan (ON)" : "Berhenti (OFF)");
+      mState.style.color = live === null ? "var(--ink)" : (motorRun ? "var(--green)" : "var(--red)");
+    }
+    if (mDetail) {
+      mDetail.textContent = live === null ? "Status belum dikirim" : `Kecepatan PWM: ${motorSpd}`;
+    }
   }
 
-  /* ---------- Firebase Fetch ---------- */
+  /* ---------- Firebase Fetch & Write ---------- */
   function dbUrl(path) {
     if (!cfg.databaseURL) throw new Error("databaseURL belum diisi di config.js");
     const base = cfg.databaseURL.replace(/\/$/, "") + "/" + path.replace(/^\//, "") + ".json";
@@ -491,6 +528,132 @@
     const res = await fetch(dbUrl(path), { cache: "no-store" });
     if (!res.ok) throw new Error(`Firebase HTTP ${res.status}`);
     return res.json();
+  }
+
+  async function patchFirebase(path, data) {
+    const res = await fetch(dbUrl(path), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(`Firebase PATCH HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function postFirebase(path, data) {
+    const res = await fetch(dbUrl(path), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error(`Firebase POST HTTP ${res.status}`);
+    return res.json();
+  }
+
+  /* ---------- Hardware Control (Motor Dinamo & Log Beban) ---------- */
+  function updateMotorUI(isRunning, speed = 255) {
+    state.motorRunning = isRunning;
+    state.motorSpeed = speed;
+    const badge = $("motorBadge");
+    const icon = $("motorStatusIcon");
+    const text = $("motorStatusText");
+    const mState = $("espMotorState");
+    const mDetail = $("espMotorDetail");
+
+    if (badge) {
+      badge.textContent = isRunning ? "MOTOR BERJALAN" : "MOTOR BERHENTI";
+      badge.className = "status-badge " + (isRunning ? "online" : "offline");
+    }
+    if (icon) {
+      icon.className = "control-icon " + (isRunning ? "running" : "stopped");
+    }
+    if (text) {
+      text.textContent = isRunning
+        ? `Dinamo konveyor sedang berjalan aktif (Kecepatan PWM ${speed}).`
+        : "Dinamo konveyor dalam posisi berhenti (STOP).";
+    }
+    if (mState) {
+      mState.textContent = isRunning ? "Berjalan (ON)" : "Berhenti (OFF)";
+      mState.style.color = isRunning ? "var(--green)" : "var(--red)";
+    }
+    if (mDetail) {
+      mDetail.textContent = isRunning ? `Kecepatan PWM: ${speed}` : "Standby";
+    }
+  }
+
+  async function setConveyorMotor(shouldRun, speed = 255) {
+    updateMotorUI(shouldRun, speed);
+
+    if (state.mode === "demo") {
+      const belt = document.querySelector(".belt-track");
+      if (belt) belt.classList.toggle("running", shouldRun);
+      showToast(shouldRun ? "▶ Dinamo konveyor dijalankan (Mode Simulasi)" : "🛑 Dinamo konveyor dihentikan (Mode Simulasi)");
+      return;
+    }
+
+    try {
+      await patchFirebase("device/control", {
+        motor: shouldRun,
+        speed: speed,
+        command: shouldRun ? "run" : "stop",
+        updatedAt: { ".sv": "timestamp" }
+      });
+      showToast(shouldRun ? "▶ Perintah RUN terkirim ke ESP8266" : "🛑 Perintah STOP terkirim ke ESP8266");
+      setTimeout(load, 800);
+    } catch (e) {
+      showToast("Gagal mengirim perintah motor: " + e.message);
+    }
+  }
+
+  async function logWeightOnly() {
+    let weight = Number(state.device?.weightGram);
+    if (!Number.isFinite(weight) || weight <= 0) {
+      if (state.mode === "demo") {
+        weight = Number($("simWeightSlider")?.value) || 250.0;
+      } else {
+        const input = prompt("Timbangan membaca 0.0g atau menunggu data. Masukkan nilai berat beban (gram) yang ingin dicatat:", "150.0");
+        if (input === null) return;
+        weight = parseFloat(input);
+        if (isNaN(weight) || weight <= 0) {
+          showToast("Nilai berat tidak valid");
+          return;
+        }
+      }
+    }
+
+    const item = {
+      UID: "BEBAN-ONLY",
+      Produk: "Penimbangan Manual",
+      Bobot: Number(weight.toFixed(1)),
+      Status: "Beban Saja",
+      Timestamp: new Date().toISOString()
+    };
+
+    if (state.mode === "demo") {
+      state.demoLogs.unshift({
+        ...item,
+        Timestamp: Date.now()
+      });
+      if (state.demoLogs.length > 60) state.demoLogs.pop();
+      state.logs = normalize(state.demoLogs);
+      state.newestKey = state.logs[0]?._id || null;
+      render();
+      showToast(`Log beban berhasil dicatat: ${weight.toFixed(1)} g`);
+      return;
+    }
+
+    try {
+      await postFirebase("logs", {
+        ...item,
+        weightRaw: state.device?.weightRaw ?? 0,
+        servoAngle: 90,
+        tsServer: { ".sv": "timestamp" }
+      });
+      showToast(`Log beban berhasil disimpan ke Firebase: ${weight.toFixed(1)} g`);
+      await load();
+    } catch (e) {
+      showToast("Gagal menyimpan log beban: " + e.message);
+    }
   }
 
   async function load() {
@@ -938,6 +1101,10 @@
   });
 
   $("exportCsvBtn").addEventListener("click", exportCsv);
+  $("logWeightTableBtn")?.addEventListener("click", logWeightOnly);
+  $("logWeightQuickBtn")?.addEventListener("click", logWeightOnly);
+  $("motorStopBtn")?.addEventListener("click", () => setConveyorMotor(false, 0));
+  $("motorStartBtn")?.addEventListener("click", () => setConveyorMotor(true, 255));
   $("closeModalBtn").addEventListener("click", closeDetailModal);
   $("detailModal").addEventListener("click", e => {
     if (e.target === $("detailModal")) closeDetailModal();
