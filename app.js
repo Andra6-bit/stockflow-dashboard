@@ -5,13 +5,13 @@
   const createSampleLogs = () => {
     const now = Date.now();
     return [
-      { UID: "E280115A", Bobot: 248.5, Timestamp: now - 45000, Status: "Valid", Produk: "Produk A", BeratStandar: 250 },
-      { UID: "BEBAN-ONLY", Bobot: 172.6, Timestamp: now - 95000, Status: "Beban Saja", Produk: "Penimbangan Langsung", BeratStandar: null },
-      { UID: "04A1B2C3", Bobot: 318.2, Timestamp: now - 165000, Status: "Anomali", Produk: "Produk B", BeratStandar: 280 },
-      { UID: "AABB1020", Bobot: 150.4, Timestamp: now - 340000, Status: "Valid", Produk: "Produk C", BeratStandar: 150 },
-      { UID: "E28011FF", Bobot: 89.4, Timestamp: now - 580000, Status: "Reject", Produk: "Produk D", BeratStandar: 120 },
-      { UID: "91BC02D4", Bobot: 501.7, Timestamp: now - 890000, Status: "Valid", Produk: "Produk E", BeratStandar: 500 },
-      { UID: "7F44C901", Bobot: 253.1, Timestamp: now - 1240000, Status: "Valid", Produk: "Produk A", BeratStandar: 250 }
+      { UID: "E280115A", Bobot: 248.5, Timestamp: now - 45000, Status: "Valid", Produk: "Kopi Arabika Gayo", BeratStandar: 250 },
+      { UID: "BEBAN-ONLY", Bobot: 172.6, Timestamp: now - 95000, Status: "Beban Saja", Produk: "Penimbangan Manual", BeratStandar: null },
+      { UID: "04A1B2C3", Bobot: 318.2, Timestamp: now - 165000, Status: "Anomali", Produk: "Biji Robusta Temanggung", BeratStandar: 280 },
+      { UID: "AABB1020", Bobot: 150.4, Timestamp: now - 340000, Status: "Valid", Produk: "Teh Hitam Walini", BeratStandar: 150 },
+      { UID: "E28011FF", Bobot: 89.4, Timestamp: now - 580000, Status: "Reject", Produk: "Cokelat Bubuk Bali", BeratStandar: 120 },
+      { UID: "91BC02D4", Bobot: 501.7, Timestamp: now - 890000, Status: "Valid", Produk: "Kopi Liberika Riau", BeratStandar: 500 },
+      { UID: "7F44C901", Bobot: 253.1, Timestamp: now - 1240000, Status: "Valid", Produk: "Kopi Arabika Gayo", BeratStandar: 250 }
     ];
   };
 
@@ -31,12 +31,12 @@
     pollTimer: null,
     simBusy: false,
     soundOn: true,
-    selectedPreset: { prod: "Produk A", std: 250 },
+    selectedPreset: { prod: "Kopi Arabika Gayo", std: 250 },
     newestKey: null,
     audioCtx: null
   };
 
-  const safe = v => String(v ?? "—").replace(/[&<>"']/g, c => ({
+  const safe = v => String(v ?? "-").replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
 
@@ -126,7 +126,7 @@
       osc.start(t);
       osc.stop(t + duration + 0.02);
     } catch {
-      // Ignore browser autoplay audio restrictions
+      // Audio autoplay restrictions
     }
   }
 
@@ -148,6 +148,7 @@
   let toastTimer = null;
   function showToast(msg) {
     const t = $("toast");
+    if (!t) return;
     t.textContent = msg;
     t.classList.add("show");
     clearTimeout(toastTimer);
@@ -155,38 +156,38 @@
   }
 
   function setConnection(isOnline, label, sub) {
-    $("topDot").className = "dot" + (isOnline ? " online" : "");
-    $("sideDot").className = "dot" + (isOnline ? " online" : "");
-    $("connectionLabel").textContent = label;
-    $("sideConnection").textContent =
-      label === "CONNECTED" ? "Firebase terhubung"
-        : label === "DEMO MODE" ? "Mode Simulasi"
-        : "Belum terhubung";
-    $("sideSub").textContent = sub;
+    if ($("topDot")) $("topDot").className = "status-dot" + (isOnline ? " online" : "");
+    if ($("sideDot")) $("sideDot").className = "status-dot" + (isOnline ? " online" : "");
+    if ($("connectionLabel")) $("connectionLabel").textContent = label;
+    if ($("sideConnection")) {
+      $("sideConnection").textContent =
+        label === "CONNECTED" ? "Firebase terhubung"
+          : label === "DEMO MODE" ? "Mode Simulasi"
+          : "Belum terhubung";
+    }
+    if ($("sideSub")) $("sideSub").textContent = sub;
   }
 
   function syncModeButtons() {
     const isDemo = state.mode === "demo";
     document.body.dataset.mode = state.mode;
-    $("topLiveBtn").classList.toggle("active", !isDemo);
-    $("topDemoBtn").classList.toggle("active", isDemo);
-    $("sideLiveBtn").classList.toggle("active", !isDemo);
-    $("sideDemoBtn").classList.toggle("active", isDemo);
-    $("simulator").hidden = !isDemo;
-    $("heroCta").hidden = !isDemo;
-    $("simFaultBar").hidden = !isDemo;
-    $("simModeBadge").textContent = isDemo ? "SIMULASI AKTIF" : "NONAKTIF";
-    $("simModeBadge").className = "status-badge " + (isDemo ? "online" : "unknown");
-    $("topbarSubtitle").textContent = isDemo
-      ? "Pantau proses penimbangan, scan RFID, dan uji coba sortir paket secara interaktif."
-      : "Pantau proses penimbangan dan validasi paket secara terpusat.";
-    $("heroSubtitle").textContent = isDemo
-      ? "Data RFID dan berat digabungkan oleh NodeMCU, lalu dievaluasi dan dicatat secara real-time. Coba langsung conveyor virtual di bawah!"
-      : "Data RFID dan berat digabungkan oleh NodeMCU, lalu dicatat sebagai satu transaksi di Firebase.";
-    if (!isDemo && document.querySelector('[data-section="simulator"].active')) {
-      setActiveNav("overview");
+    if ($("topLiveBtn")) $("topLiveBtn").classList.toggle("active", !isDemo);
+    if ($("topDemoBtn")) $("topDemoBtn").classList.toggle("active", isDemo);
+    if ($("sideLiveBtn")) $("sideLiveBtn").classList.toggle("active", !isDemo);
+    if ($("sideDemoBtn")) $("sideDemoBtn").classList.toggle("active", isDemo);
+    if ($("simulator")) $("simulator").hidden = !isDemo;
+    if ($("heroCta")) $("heroCta").hidden = !isDemo;
+    if ($("simFaultBar")) $("simFaultBar").hidden = !isDemo;
+    if ($("simModeBadge")) {
+      $("simModeBadge").textContent = isDemo ? "SIMULASI AKTIF" : "NONAKTIF";
+      $("simModeBadge").className = "indicator-badge-inset " + (isDemo ? "online" : "offline");
     }
-    if (isDemo) $("connectBanner").hidden = true;
+    if ($("topbarSubtitle")) {
+      $("topbarSubtitle").textContent = isDemo
+        ? "Uji coba alur kerja konveyor, pembacaan RFID, dan sensor bobot secara interaktif."
+        : "Pusat Kendali Konveyor & Pemantauan IoT";
+    }
+    if (isDemo && $("connectBanner")) $("connectBanner").hidden = true;
   }
 
   function switchMode(nextMode, silent = false) {
@@ -198,16 +199,17 @@
       clearInterval(state.pollTimer);
       state.pollTimer = null;
       load();
-      if (!silent) showToast("Mode Simulasi aktif — silakan mainkan conveyor & sensor!");
+      if (!silent) showToast("Mode Simulasi aktif. Silakan uji coba konveyor dan sensor.");
     } else {
       load();
       startPolling();
-      if (!silent) showToast("Beralih ke Live Firebase");
+      if (!silent) showToast("Beralih ke Live Firebase.");
     }
   }
 
   /* ---------- Render Core ---------- */
   function animateCounter(el, target) {
+    if (!el) return;
     const current = parseInt(el.textContent, 10);
     if (!Number.isFinite(current) || current === target) {
       el.textContent = target;
@@ -240,23 +242,25 @@
     const validPct = known ? Math.round((valid / known) * 100) : 0;
     const rejectPct = known ? Math.round((reject / known) * 100) : 0;
 
-    $("validPercent").textContent = validPct + "%";
-    $("rejectPercent").textContent = rejectPct + "%";
-    $("averageWeight").innerHTML = avg === null ? "—" : `${avg.toFixed(1)}<small> g</small>`;
-    $("weightRangeText").textContent = minW !== null ? `Rentang ${minW.toFixed(0)}g – ${maxW.toFixed(0)}g` : "Rata-rata berat terukur";
+    if ($("validPercent")) $("validPercent").textContent = validPct + "%";
+    if ($("rejectPercent")) $("rejectPercent").textContent = rejectPct + "%";
+    if ($("averageWeight")) $("averageWeight").innerHTML = avg === null ? "-" : `${avg.toFixed(1)}<small> g</small>`;
+    if ($("weightRangeText")) $("weightRangeText").textContent = minW !== null ? `Rentang ${minW.toFixed(0)}g - ${maxW.toFixed(0)}g` : "Rata-rata berat terukur";
 
-    $("donutTotal").textContent = state.logs.length;
-    $("legendValid").textContent = valid;
-    $("legendReject").textContent = reject;
-    $("passRateText").textContent = validPct + "%";
-    $("passRateBar").style.width = validPct + "%";
+    if ($("donutTotal")) $("donutTotal").textContent = state.logs.length;
+    if ($("legendValid")) $("legendValid").textContent = valid;
+    if ($("legendReject")) $("legendReject").textContent = reject;
+    if ($("passRateText")) $("passRateText").textContent = validPct + "%";
+    if ($("passRateBar")) $("passRateBar").style.width = validPct + "%";
 
     const pct = known ? (valid / known) * 100 : 0;
-    $("donut").style.background = known
-      ? `conic-gradient(var(--green) 0 ${pct}%, var(--red) ${pct}% 100%)`
-      : `conic-gradient(var(--line) 0 100%)`;
+    if ($("donut")) {
+      $("donut").style.background = known
+        ? `conic-gradient(var(--accent-status) 0 ${pct}%, var(--accent-alert) ${pct}% 100%)`
+        : `conic-gradient(var(--surface-shadow) 0 100%)`;
+    }
 
-    $("logCount").textContent = state.logs.length + " RECORD";
+    if ($("logCount")) $("logCount").textContent = state.logs.length + " RECORD";
 
     syncFilterUI();
     renderRows();
@@ -265,7 +269,7 @@
   }
 
   function syncFilterUI() {
-    $("statusFilter").value = state.filterStatus;
+    if ($("statusFilter")) $("statusFilter").value = state.filterStatus;
     document.querySelectorAll(".f-pill").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.val === state.filterStatus);
     });
@@ -281,7 +285,7 @@
   }
 
   function getFilteredSortedLogs() {
-    const q = $("searchInput").value.trim().toLowerCase();
+    const q = ($("searchInput")?.value || "").trim().toLowerCase();
     const f = state.filterStatus;
     const list = state.logs.filter(x => {
       const hay = `${uidOf(x)} ${productOf(x)}`.toLowerCase();
@@ -304,30 +308,33 @@
 
   function renderRows() {
     const filtered = getFilteredSortedLogs();
-    $("showingText").textContent = `Menampilkan ${filtered.length} dari ${state.logs.length} transaksi`;
+    if ($("showingText")) $("showingText").textContent = `Menampilkan ${filtered.length} dari ${state.logs.length} transaksi`;
     if (!filtered.length) {
-      $("logBody").innerHTML = '<tr><td colspan="4" class="empty">Tidak ada transaksi yang cocok.</td></tr>';
+      if ($("logBody")) $("logBody").innerHTML = '<tr><td colspan="4" style="text-align:center; padding:32px; color:var(--ink-muted);">Tidak ada transaksi yang cocok.</td></tr>';
       return;
     }
 
-    $("logBody").innerHTML = filtered.map(x => {
-      const st = statusOf(x);
-      const label = labelOf(st);
-      const w = weightOf(x);
-      const isNew = state.newestKey && x._id === state.newestKey;
-      return `<tr class="log-row ${isNew ? "row-new" : ""}" data-id="${safe(x._id)}">
-        <td>${safe(uidOf(x))}<span class="uid-sub">${safe(productOf(x))}</span></td>
-        <td><span class="weight">${Number.isFinite(w) ? w.toFixed(1) + " g" : "—"}</span></td>
-        <td><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : st === "beban" ? "beban" : ""}">${label}</span></td>
-        <td>${safe(fmtTime(x._time ?? x.Timestamp))}</td>
-      </tr>`;
-    }).join("");
+    if ($("logBody")) {
+      $("logBody").innerHTML = filtered.map(x => {
+        const st = statusOf(x);
+        const label = labelOf(st);
+        const w = weightOf(x);
+        const isNew = state.newestKey && x._id === state.newestKey;
+        return `<tr class="log-row ${isNew ? "row-new" : ""}" data-id="${safe(x._id)}">
+          <td>${safe(uidOf(x))}<span class="uid-sub">${safe(productOf(x))}</span></td>
+          <td><span class="weight tabular">${Number.isFinite(w) ? w.toFixed(1) + " g" : "-"}</span></td>
+          <td><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : st === "beban" ? "beban" : ""}">${label}</span></td>
+          <td>${safe(fmtTime(x._time ?? x.Timestamp))}</td>
+        </tr>`;
+      }).join("");
+    }
   }
 
   /* ---------- Interactive SVG Weight Chart ---------- */
   function renderChart() {
     const svg = $("weightChart");
     const tooltip = $("chartTooltip");
+    if (!svg || !tooltip) return;
     tooltip.hidden = true;
 
     const recent = state.logs
@@ -336,7 +343,7 @@
       .reverse();
 
     if (!recent.length) {
-      svg.innerHTML = `<text x="320" y="90" text-anchor="middle" fill="var(--muted)" font-size="12">Belum ada data berat untuk ditampilkan</text>`;
+      svg.innerHTML = `<text x="320" y="90" text-anchor="middle" fill="var(--ink-muted)" font-size="12">Belum ada data bobot untuk ditampilkan</text>`;
       return;
     }
 
@@ -354,8 +361,8 @@
     const gridLines = [0, 0.5, 1].map(r => {
       const val = Math.round(minW + span * (1 - r));
       const y = padT + r * (H - padT - padB);
-      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--line)" stroke-dasharray="4 4"/>
-              <text x="${padL - 6}" y="${y + 4}" text-anchor="end" fill="var(--muted)" font-size="9">${val}g</text>`;
+      return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="var(--surface-shadow)" stroke-dasharray="4 4"/>
+              <text x="${padL - 6}" y="${y + 4}" text-anchor="end" fill="var(--ink-muted)" font-size="10" font-family="Plus Jakarta Sans">${val}g</text>`;
     }).join("");
 
     const pts = recent.map((item, i) => {
@@ -368,7 +375,7 @@
 
     const dots = pts.map((p, idx) => {
       const st = statusOf(p.item);
-      const color = st === "valid" ? "var(--green)" : st === "reject" ? "var(--red)" : "var(--blue)";
+      const color = st === "valid" ? "var(--accent-status)" : st === "reject" ? "var(--accent-alert)" : "var(--accent-cta)";
       return `<g class="chart-pt" data-idx="${idx}" style="cursor:pointer">
         <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" fill="transparent"/>
         <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="${color}" stroke="var(--surface)" stroke-width="2"/>
@@ -378,13 +385,13 @@
     svg.innerHTML = `
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#94623c" stop-opacity="0.28"/>
-          <stop offset="100%" stop-color="#94623c" stop-opacity="0"/>
+          <stop offset="0%" stop-color="#9E5834" stop-opacity="0.22"/>
+          <stop offset="100%" stop-color="#9E5834" stop-opacity="0"/>
         </linearGradient>
       </defs>
       ${gridLines}
       <polygon points="${areaPoints}" fill="url(#chartGrad)"/>
-      <polyline points="${polyPoints}" fill="none" stroke="#94623c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="${polyPoints}" fill="none" stroke="#9E5834" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
       ${dots}
     `;
 
@@ -422,31 +429,39 @@
         }
       : state.device;
 
-    // Waktu terakhir terlihat: utamakan waktu server Firebase (lastSeenMs)
     const seen = dev ? (timeValue(dev.lastSeenMs) ?? timeValue(dev.lastSeen ?? dev.timestamp ?? dev.Timestamp)) : null;
     const age = seen ? Date.now() - seen : Infinity;
     const online = age < (state.mode === "demo" ? 60000 : 20000);
 
-    $("deviceBadge").className = "status-badge " + (online ? "online" : dev ? "offline" : "unknown");
-    $("deviceBadge").textContent = state.mode === "demo"
-      ? (online ? "SIMULASI PERANGKAT ONLINE" : "SIMULASI OFFLINE")
-      : (online ? "PERANGKAT ONLINE" : dev ? "PERANGKAT OFFLINE" : "BELUM TERHUBUNG");
+    if ($("deviceBadge")) {
+      $("deviceBadge").className = "indicator-badge-inset " + (online ? "online" : dev ? "offline" : "");
+      $("deviceBadge").textContent = state.mode === "demo"
+        ? (online ? "SIMULASI ONLINE" : "SIMULASI OFFLINE")
+        : (online ? "PERANGKAT ONLINE" : dev ? "PERANGKAT OFFLINE" : "BELUM TERHUBUNG");
+    }
 
-    $("espState").textContent = online ? "Terhubung" : dev ? "Tidak aktif" : "Belum ada heartbeat";
-    $("espState").style.color = online ? "var(--green)" : dev ? "var(--red)" : "var(--ink)";
-    $("lastSeen").textContent = dev && seen
-      ? `Terakhir terlihat: ${fmtTime(seen)}`
-      : "Menunggu data perangkat";
+    if ($("espState")) {
+      $("espState").textContent = online ? "Terhubung" : dev ? "Tidak aktif" : "Belum ada heartbeat";
+      $("espState").style.color = online ? "var(--accent-status)" : dev ? "var(--accent-alert)" : "var(--ink-body)";
+    }
+    if ($("lastSeen")) {
+      $("lastSeen").textContent = dev && seen
+        ? `Terakhir terlihat: ${fmtTime(seen)}`
+        : "Status telemetri sensor dan mikrokontroler.";
+    }
 
-    // Jika perangkat offline, status sensor lama tidak boleh tampil seolah-olah masih normal
     const live = online ? dev : null;
 
     const sensor = (key, stateId, detailId, title) => {
       const val = live?.[key];
       const good = val === true || String(val).toLowerCase() === "ok" || String(val).toLowerCase() === "true";
-      $(stateId).textContent = val === undefined ? "Tidak diketahui" : good ? "Online" : "Tidak terdeteksi";
-      $(detailId).textContent = val === undefined ? "Status belum dikirim" : good ? title + " terdeteksi" : "Periksa kabel / suplai";
-      $(stateId).style.color = val === undefined ? "var(--ink)" : good ? "var(--green)" : "var(--red)";
+      if ($(stateId)) {
+        $(stateId).textContent = val === undefined ? "Tidak diketahui" : good ? "Online" : "Tidak terdeteksi";
+        $(stateId).style.color = val === undefined ? "var(--ink-body)" : good ? "var(--accent-status)" : "var(--accent-alert)";
+      }
+      if ($(detailId)) {
+        $(detailId).textContent = val === undefined ? "Status belum dikirim" : good ? title + " terdeteksi" : "Periksa suplai atau kabel";
+      }
     };
 
     sensor("rfidOk", "rfidState", "rfidDetail", "RFID RC522");
@@ -454,66 +469,72 @@
 
     // Berat live
     const wg = Number(live?.weightGram);
-    $("liveWeight").textContent = Number.isFinite(wg) ? `${wg.toFixed(1)} g` : "—";
-    $("liveWeightDetail").textContent = live
-      ? `Raw ${live.weightRaw ?? "—"} · UID terakhir ${live.lastUID && live.lastUID !== "-" ? live.lastUID : "belum ada"}`
-      : "Menunggu data timbangan";
+    if ($("liveWeight")) $("liveWeight").textContent = Number.isFinite(wg) ? `${wg.toFixed(1)} g` : "-";
+    if ($("liveWeightDetail")) {
+      $("liveWeightDetail").textContent = live
+        ? `Nilai raw ${live.weightRaw ?? "-"} · UID terakhir: ${live.lastUID && live.lastUID !== "-" ? live.lastUID : "belum ada"}`
+        : "Menunggu data timbangan dari sensor Load Cell HX711.";
+    }
 
     // Servo
     const sv = live?.servoOk;
     const svState = String(live?.servoState || "").toLowerCase();
-    $("servoState").textContent = sv === undefined ? "Tidak diketahui"
-      : sv === false ? "Tidak terdeteksi"
-      : svState === "standby" ? "Standby"
-      : svState ? svState.charAt(0).toUpperCase() + svState.slice(1) : "Online";
-    $("servoState").style.color = sv === undefined ? "var(--ink)" : sv ? "var(--green)" : "var(--red)";
-    $("servoDetail").textContent = live && live.servoAngle !== undefined ? `Sudut ${live.servoAngle}°` : "Status belum dikirim";
+    if ($("servoState")) {
+      $("servoState").textContent = sv === undefined ? "Tidak diketahui"
+        : sv === false ? "Tidak terdeteksi"
+        : svState === "standby" ? "Standby"
+        : svState ? svState.charAt(0).toUpperCase() + svState.slice(1) : "Online";
+      $("servoState").style.color = sv === undefined ? "var(--ink-body)" : sv ? "var(--accent-status)" : "var(--accent-alert)";
+    }
+    if ($("servoDetail")) {
+      $("servoDetail").textContent = live && live.servoAngle !== undefined ? `Posisi sudut ${live.servoAngle}°` : "Pintu pemilah jalur paket";
+    }
 
-    // Wi-Fi (firmware mengirim wifiRssi, simulasi memakai rssi)
+    // Wi-Fi RSSI
     const rssi = live ? (live.rssi ?? live.wifiRssi) : undefined;
-    $("wifiState").textContent = rssi === undefined ? "Tidak diketahui" : `${rssi} dBm`;
-    $("wifiDetail").textContent = rssi === undefined
-      ? "RSSI belum dikirim"
-      : rssi > -67 ? "Sinyal baik"
-      : rssi > -80 ? "Sinyal lemah"
-      : "Sinyal sangat lemah";
+    if ($("wifiState")) $("wifiState").textContent = rssi === undefined ? "Tidak diketahui" : `${rssi} dBm`;
+    if ($("wifiDetail")) {
+      $("wifiDetail").textContent = rssi === undefined
+        ? "Konektivitas nirkabel lokal"
+        : rssi > -67 ? "Sinyal baik"
+        : rssi > -80 ? "Sinyal cukup"
+        : "Sinyal lemah";
+    }
 
     const bars = $("wifiBars");
-    bars.className = "wifi-bars";
-    if (typeof rssi === "number") {
-      if (rssi > -60) bars.classList.add("lvl-4");
-      else if (rssi > -70) bars.classList.add("lvl-3");
-      else if (rssi > -82) bars.classList.add("lvl-2");
-      else bars.classList.add("lvl-1");
+    if (bars) {
+      bars.className = "wifi-bars";
+      if (typeof rssi === "number") {
+        if (rssi > -60) bars.classList.add("lvl-4");
+        else if (rssi > -70) bars.classList.add("lvl-3");
+        else if (rssi > -82) bars.classList.add("lvl-2");
+        else bars.classList.add("lvl-1");
+      }
     }
 
     // Motor Konveyor
     const motorRun = live?.motorRunning ?? (state.mode === "demo" ? state.motorRunning : false);
     const motorSpd = live?.motorSpeed ?? (state.mode === "demo" ? state.motorSpeed : 0);
     const mBadge = $("motorBadge");
-    const mIcon = $("motorStatusIcon");
     const mText = $("motorStatusText");
     const mState = $("espMotorState");
     const mDetail = $("espMotorDetail");
 
     if (mBadge) {
       mBadge.textContent = !online && state.mode !== "demo" ? "PERANGKAT OFFLINE" : (motorRun ? "MOTOR BERJALAN" : "MOTOR BERHENTI");
-      mBadge.className = "status-badge " + (online || state.mode === "demo" ? (motorRun ? "online" : "offline") : "unknown");
-    }
-    if (mIcon) {
-      mIcon.className = "control-icon " + (motorRun ? "running" : "stopped");
+      mBadge.className = "indicator-badge-inset " + (online || state.mode === "demo" ? (motorRun ? "online" : "offline") : "");
     }
     if (mText) {
       mText.textContent = motorRun
         ? `Dinamo konveyor sedang berjalan aktif (Kecepatan PWM ${motorSpd || 255}).`
-        : `Dinamo konveyor dalam posisi berhenti (STOP).`;
+        : "Dinamo konveyor dalam posisi berhenti (STOP).";
     }
     if (mState) {
       mState.textContent = live === null ? "Tidak diketahui" : (motorRun ? "Berjalan (ON)" : "Berhenti (OFF)");
-      mState.style.color = live === null ? "var(--ink)" : (motorRun ? "var(--green)" : "var(--red)");
+      mState.style.color = live === null ? "var(--ink-body)" : (motorRun ? "var(--accent-status)" : "var(--accent-alert)");
     }
     if (mDetail) {
-      mDetail.textContent = live === null ? "Status belum dikirim" : `Kecepatan PWM: ${motorSpd}`;
+      mDetail.textContent = live === null ? "Penggerak mekanik konveyor" : `Kecepatan PWM: ${motorSpd}`;
     }
   }
 
@@ -555,17 +576,13 @@
     state.motorRunning = isRunning;
     state.motorSpeed = speed;
     const badge = $("motorBadge");
-    const icon = $("motorStatusIcon");
     const text = $("motorStatusText");
     const mState = $("espMotorState");
     const mDetail = $("espMotorDetail");
 
     if (badge) {
       badge.textContent = isRunning ? "MOTOR BERJALAN" : "MOTOR BERHENTI";
-      badge.className = "status-badge " + (isRunning ? "online" : "offline");
-    }
-    if (icon) {
-      icon.className = "control-icon " + (isRunning ? "running" : "stopped");
+      badge.className = "indicator-badge-inset " + (isRunning ? "online" : "offline");
     }
     if (text) {
       text.textContent = isRunning
@@ -574,7 +591,7 @@
     }
     if (mState) {
       mState.textContent = isRunning ? "Berjalan (ON)" : "Berhenti (OFF)";
-      mState.style.color = isRunning ? "var(--green)" : "var(--red)";
+      mState.style.color = isRunning ? "var(--accent-status)" : "var(--accent-alert)";
     }
     if (mDetail) {
       mDetail.textContent = isRunning ? `Kecepatan PWM: ${speed}` : "Standby";
@@ -587,12 +604,11 @@
     if (state.mode === "demo") {
       const belt = document.querySelector(".belt-track");
       if (belt) belt.classList.toggle("running", shouldRun);
-      showToast(shouldRun ? "▶ Dinamo konveyor dijalankan (Mode Simulasi)" : "🛑 Dinamo konveyor dihentikan (Mode Simulasi)");
+      showToast(shouldRun ? "Dinamo konveyor dijalankan (Mode Simulasi)" : "Dinamo konveyor dihentikan (Mode Simulasi)");
       return;
     }
 
     try {
-      // Gunakan path device/status/control dan device/status agar kompatibel dengan Firebase Rules (/device/status)
       await patchFirebase("device/status/control", {
         motor: shouldRun,
         speed: speed,
@@ -603,7 +619,7 @@
         motorRunning: shouldRun,
         motorSpeed: speed
       });
-      showToast(shouldRun ? "▶ Perintah RUN terkirim ke ESP8266" : "🛑 Perintah STOP terkirim ke ESP8266");
+      showToast(shouldRun ? "Perintah RUN terkirim ke ESP8266" : "Perintah STOP terkirim ke ESP8266");
       setTimeout(load, 800);
     } catch (e) {
       showToast("Gagal mengirim perintah motor: " + e.message);
@@ -616,11 +632,11 @@
       if (state.mode === "demo") {
         weight = Number($("simWeightSlider")?.value) || 250.0;
       } else {
-        const input = prompt("Timbangan membaca 0.0g atau menunggu data. Masukkan nilai berat beban (gram) yang ingin dicatat:", "150.0");
+        const input = prompt("Timbangan membaca 0.0g atau menunggu data. Masukkan nilai bobot (gram) yang ingin dicatat:", "150.0");
         if (input === null) return;
         weight = parseFloat(input);
         if (isNaN(weight) || weight <= 0) {
-          showToast("Nilai berat tidak valid");
+          showToast("Nilai bobot tidak valid");
           return;
         }
       }
@@ -643,7 +659,7 @@
       state.logs = normalize(state.demoLogs);
       state.newestKey = state.logs[0]?._id || null;
       render();
-      showToast(`Log beban berhasil dicatat: ${weight.toFixed(1)} g`);
+      showToast(`Log bobot berhasil dicatat: ${weight.toFixed(1)} g`);
       return;
     }
 
@@ -654,10 +670,10 @@
         servoAngle: 90,
         tsServer: { ".sv": "timestamp" }
       });
-      showToast(`Log beban berhasil disimpan ke Firebase: ${weight.toFixed(1)} g`);
+      showToast(`Log bobot disimpan ke Firebase: ${weight.toFixed(1)} g`);
       await load();
     } catch (e) {
-      showToast("Gagal menyimpan log beban: " + e.message);
+      showToast("Gagal menyimpan log bobot: " + e.message);
     }
   }
 
@@ -675,17 +691,19 @@
       state.logs = normalize(raw);
       state.device = stat || null;
       setConnection(true, "CONNECTED", "Sinkronisasi Firebase berhasil");
-      $("connectBanner").hidden = state.logs.length > 0;
-      if (!state.logs.length) {
-        $("bannerTitle").textContent = "Firebase terhubung, tetapi log transaksi masih kosong";
-        $("bannerDesc").textContent = "Sambil menunggu data dari ESP8266, Anda dapat mencoba simulasi interaktif terlebih dahulu.";
+      if ($("connectBanner")) $("connectBanner").hidden = state.logs.length > 0;
+      if (!state.logs.length && $("bannerTitle")) {
+        $("bannerTitle").textContent = "Firebase terhubung, log transaksi masih kosong";
+        $("bannerDesc").textContent = "Menunggu data dari ESP8266. Anda dapat menguji dashboard melalui Mode Simulasi.";
       }
       render();
     } catch (e) {
       setConnection(false, "DISCONNECTED", e.message);
-      $("connectBanner").hidden = false;
-      $("bannerTitle").textContent = `Gagal terhubung ke Firebase (${e.message})`;
-      $("bannerDesc").textContent = "Klik tombol di kanan untuk langsung memainkan Mode Simulasi interaktif.";
+      if ($("connectBanner")) {
+        $("connectBanner").hidden = false;
+        $("bannerTitle").textContent = `Koneksi Firebase terputus (${e.message})`;
+        $("bannerDesc").textContent = "Gunakan Mode Simulasi untuk tetap menguji visualisasi dan fitur pemantauan.";
+      }
       render();
     }
   }
@@ -702,13 +720,14 @@
 
   function spawnBurst(color) {
     const layer = $("burstLayer");
+    if (!layer) return;
     for (let i = 0; i < 14; i++) {
       const dot = document.createElement("span");
       dot.className = "burst-dot";
       const angle = (Math.PI * 2 * i) / 14;
       const dist = 26 + Math.random() * 38;
-      dot.style.left = "82%";
-      dot.style.top = "68%";
+      dot.style.left = "80%";
+      dot.style.top = "50%";
       dot.style.background = color;
       dot.style.setProperty("--dx", `${Math.cos(angle) * dist}px`);
       dot.style.setProperty("--dy", `${Math.sin(angle) * dist}px`);
@@ -718,30 +737,33 @@
   }
 
   function updateWeightHint() {
+    if (!$("simWeightSlider")) return;
     const w = Number($("simWeightSlider").value);
     const std = state.selectedPreset.std;
     const diff = w - std;
     const sign = diff >= 0 ? "+" : "";
     const ok = Math.abs(diff) <= 15;
-    $("simWeightLabel").textContent = `${w.toFixed(1)} g`;
-    $("simDiffHint").textContent = `(Standar ${std}g · Selisih ${sign}${diff.toFixed(1)}g · ${ok ? "Dalam toleransi" : "Di luar toleransi"})`;
-    $("simDiffHint").style.color = ok ? "var(--green)" : "var(--red)";
-    $("pkgVisualUid").textContent = $("simUidInput").value.trim().toUpperCase() || "E280115A";
-    $("pkgVisualProd").textContent = state.selectedPreset.prod;
+    if ($("simWeightLabel")) $("simWeightLabel").textContent = `${w.toFixed(1)} g`;
+    if ($("simDiffHint")) {
+      $("simDiffHint").textContent = `(Standar ${std}g · Selisih ${sign}${diff.toFixed(1)}g · ${ok ? "Dalam toleransi" : "Di luar toleransi"})`;
+      $("simDiffHint").style.color = ok ? "var(--accent-status)" : "var(--accent-alert)";
+    }
+    if ($("pkgVisualUid")) $("pkgVisualUid").textContent = $("simUidInput")?.value.trim().toUpperCase() || "E280115A";
+    if ($("pkgVisualProd")) $("pkgVisualProd").textContent = state.selectedPreset.prod;
   }
 
   function runPackageSimulation(customPacket = null) {
     if (state.simBusy) return;
     if (state.mode !== "demo") {
       switchMode("demo", true);
-      showToast("Beralih ke Mode Simulasi agar data Live tetap aman");
+      showToast("Beralih ke Mode Simulasi.");
     }
 
     state.simBusy = true;
-    const uid = (customPacket?.UID || $("simUidInput").value.trim() || randomUid()).toUpperCase();
+    const uid = (customPacket?.UID || $("simUidInput")?.value.trim() || randomUid()).toUpperCase();
     const prod = customPacket?.Produk || state.selectedPreset.prod;
     const std = customPacket?.BeratStandar || state.selectedPreset.std;
-    const weight = customPacket?.Bobot ?? Number($("simWeightSlider").value);
+    const weight = customPacket?.Bobot ?? Number($("simWeightSlider")?.value || 250);
 
     const pkg = $("simPackage");
     const belt = document.querySelector(".belt-track");
@@ -752,70 +774,72 @@
     const gateArm = $("gateArm");
     const gateResult = $("gateResult");
 
-    $("pkgVisualUid").textContent = uid;
-    $("pkgVisualProd").textContent = prod;
+    if ($("pkgVisualUid")) $("pkgVisualUid").textContent = uid;
+    if ($("pkgVisualProd")) $("pkgVisualProd").textContent = prod;
 
-    pkg.className = "sim-package";
-    gateArm.className = "gate-arm";
-    stRfid.classList.remove("lit");
-    stScale.classList.remove("lit");
-    stGate.classList.remove("lit-ok", "lit-err");
-    belt.classList.add("running");
+    if (pkg) pkg.className = "sim-package";
+    if (gateArm) gateArm.className = "gate-arm";
+    if (stRfid) stRfid.classList.remove("lit");
+    if (stScale) stScale.classList.remove("lit");
+    if (stGate) stGate.classList.remove("lit-ok", "lit-err");
+    if (belt) belt.classList.add("running");
 
-    // Step 1: RFID Scan
+    // Langkah 1: Pindai RFID
     setTimeout(() => {
-      pkg.classList.add("at-rfid");
-      stRfid.classList.add("lit");
-      $("rfidLed").classList.add("scanning");
-      $("rfidReadout").textContent = state.demoFaults.rfidErr ? "READ ERROR!" : uid;
+      if (pkg) pkg.classList.add("at-rfid");
+      if (stRfid) stRfid.classList.add("lit");
+      if ($("rfidLed")) $("rfidLed").classList.add("scanning");
+      if ($("rfidReadout")) $("rfidReadout").textContent = state.demoFaults.rfidErr ? "ERROR BACA" : uid;
       sfxScan();
     }, 80);
 
-    // Step 2: Load Cell Scale with realistic LCD settling
+    // Langkah 2: Penimbangan Load Cell
     let jitterTimer = null;
     setTimeout(() => {
-      stRfid.classList.remove("lit");
-      $("rfidLed").classList.remove("scanning");
-      pkg.classList.add("at-scale");
-      stScale.classList.add("lit");
+      if (stRfid) stRfid.classList.remove("lit");
+      if ($("rfidLed")) $("rfidLed").classList.remove("scanning");
+      if (pkg) pkg.classList.add("at-scale");
+      if (stScale) stScale.classList.add("lit");
 
       let ticks = 0;
       jitterTimer = setInterval(() => {
         ticks++;
         if (state.demoFaults.scaleErr) {
-          lcd.textContent = "ERR HX711";
+          if (lcd) lcd.textContent = "ERR HX711";
         } else {
-          const wobble = (Math.random() - 0.5) * 9;
-          lcd.textContent = `${Math.max(0, weight + wobble).toFixed(1)} g`;
+          const wobble = (Math.random() - 0.5) * 8;
+          if (lcd) lcd.textContent = `${Math.max(0, weight + wobble).toFixed(1)} g`;
         }
         if (ticks >= 7) {
           clearInterval(jitterTimer);
-          lcd.textContent = state.demoFaults.scaleErr ? "0.0 g" : `${weight.toFixed(1)} g`;
+          if (lcd) lcd.textContent = state.demoFaults.scaleErr ? "0.0 g" : `${weight.toFixed(1)} g`;
         }
       }, 65);
     }, 560);
 
-    // Step 3: Gate Decision + Record Log
+    // Langkah 3: Evaluasi Servo Diverter & Catat Transaksi
     setTimeout(() => {
       clearInterval(jitterTimer);
-      stScale.classList.remove("lit");
+      if (stScale) stScale.classList.remove("lit");
 
       const finalWeight = state.demoFaults.scaleErr ? 0 : weight;
       const isValid = !state.demoFaults.rfidErr && !state.demoFaults.scaleErr && Math.abs(finalWeight - std) <= 15;
       const statusStr = isValid ? "Valid" : "Anomali";
 
-      pkg.classList.add(isValid ? "at-gate-valid" : "at-gate-reject");
-      gateArm.classList.add(isValid ? "valid" : "reject");
-      stGate.classList.add(isValid ? "lit-ok" : "lit-err");
-      gateResult.textContent = isValid ? "JALUR VALID ✓" : "JALUR REJECT !";
-      gateResult.style.color = isValid ? "var(--green)" : "var(--red)";
+      if (pkg) pkg.classList.add(isValid ? "at-gate-valid" : "at-gate-reject");
+      if (gateArm) gateArm.classList.add(isValid ? "valid" : "reject");
+      if (stGate) stGate.classList.add(isValid ? "lit-ok" : "lit-err");
+      if (gateResult) {
+        gateResult.textContent = isValid ? "JALUR VALID" : "JALUR REJECT";
+        gateResult.style.color = isValid ? "var(--accent-status)" : "var(--accent-alert)";
+      }
 
       if (isValid) {
         sfxValid();
-        spawnBurst("#1eaa78");
+        spawnBurst("#4D6B53");
       } else {
         sfxReject();
-        spawnBurst("#e35d67");
+        spawnBurst("#A84338");
       }
 
       const record = {
@@ -835,21 +859,21 @@
       showToast(`${uid} (${finalWeight.toFixed(1)}g) → ${isValid ? "VALID" : "ANOMALI / REJECT"}`);
     }, 1180);
 
-    // Reset stage back to ready
+    // Reset posisi
     setTimeout(() => {
-      belt.classList.remove("running");
-      pkg.className = "sim-package";
-      $("rfidReadout").textContent = "SIAP PINDAI";
+      if (belt) belt.classList.remove("running");
+      if (pkg) pkg.className = "sim-package";
+      if ($("rfidReadout")) $("rfidReadout").textContent = "SIAP PINDAI";
       state.simBusy = false;
     }, 1900);
   }
 
   function spawnRandomSimulation() {
     const catalog = [
-      { prod: "Produk A", std: 250 },
-      { prod: "Produk B", std: 280 },
-      { prod: "Produk C", std: 150 },
-      { prod: "Produk E", std: 500 }
+      { prod: "Kopi Arabika Gayo", std: 250 },
+      { prod: "Biji Robusta Temanggung", std: 280 },
+      { prod: "Teh Hitam Walini", std: 150 },
+      { prod: "Kopi Liberika Riau", std: 500 }
     ];
     const pick = catalog[Math.floor(Math.random() * catalog.length)];
     const makeAnomaly = Math.random() < 0.28;
@@ -859,9 +883,9 @@
     const bobot = Math.max(25, Number((pick.std + offset).toFixed(1)));
     const uid = randomUid();
 
-    $("simUidInput").value = uid;
+    if ($("simUidInput")) $("simUidInput").value = uid;
     state.selectedPreset = pick;
-    $("simWeightSlider").value = bobot;
+    if ($("simWeightSlider")) $("simWeightSlider").value = bobot;
     updateWeightHint();
 
     runPackageSimulation({
@@ -879,10 +903,14 @@
 
     const btn = $("autoSimBtn");
     const heroBtn = $("heroAutoBtn");
-    btn.classList.toggle("running-auto", next);
-    heroBtn.classList.toggle("active", next);
-    btn.textContent = next ? "⏸ Pause Stream" : "▶ Auto Stream";
-    heroBtn.textContent = next ? "⏸ Hentikan Auto" : "▶ Auto Conveyor";
+    if (btn) {
+      btn.classList.toggle("active", next);
+      btn.textContent = next ? "Hentikan Stream" : "Auto Stream";
+    }
+    if (heroBtn) {
+      heroBtn.classList.toggle("active", next);
+      heroBtn.textContent = next ? "Hentikan Auto" : "Auto Conveyor";
+    }
 
     if (next) {
       if (state.mode !== "demo") switchMode("demo", true);
@@ -890,7 +918,7 @@
       state.autoTimer = setInterval(() => {
         if (!state.simBusy) spawnRandomSimulation();
       }, 2500);
-      showToast("Auto Conveyor aktif — paket diproses otomatis!");
+      showToast("Auto Conveyor aktif. Paket diproses otomatis.");
     }
   }
 
@@ -902,48 +930,59 @@
     const diff = Number.isFinite(w) && Number.isFinite(std) ? w - std : null;
     const label = labelOf(st);
 
-    $("modalTitle").textContent = `Paket ${uidOf(item)}`;
-    $("modalBody").innerHTML = `
-      <div class="modal-grid">
-        <div class="m-stat"><small>UID RFID</small><b>${safe(uidOf(item))}</b></div>
-        <div class="m-stat"><small>PRODUK</small><b>${safe(productOf(item))}</b></div>
-        <div class="m-stat"><small>BERAT AKTUAL</small><b>${Number.isFinite(w) ? w.toFixed(1) + " g" : "—"}</b></div>
-        <div class="m-stat"><small>KLASIFIKASI</small><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : ""}">${label}</span></div>
-        <div class="m-stat"><small>BERAT STANDAR</small><b>${Number.isFinite(std) ? std.toFixed(1) + " g" : "Tidak dicatat"}</b></div>
-        <div class="m-stat"><small>SELISIH</small><b style="color:${diff === null ? "var(--ink)" : Math.abs(diff) <= 15 ? "var(--green)" : "var(--red)"}">${diff === null ? "—" : (diff >= 0 ? "+" : "") + diff.toFixed(1) + " g"}</b></div>
-      </div>
-      <div class="m-stat"><small>WAKTU TRANSAKSI</small><b>${safe(fmtTime(item._time ?? item.Timestamp))}</b></div>
-      <pre class="modal-json">${safe(JSON.stringify({
-        UID: uidOf(item),
-        Produk: productOf(item),
-        Bobot: Number.isFinite(w) ? w : null,
-        BeratStandar: Number.isFinite(std) ? std : undefined,
-        Status: item.Status ?? item.status ?? label,
-        Timestamp: item.Timestamp ?? item.timestamp ?? item.waktu ?? item.createdAt
-      }, null, 2))}</pre>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-quiet btn-sm" id="copyUidBtn">Salin UID</button>
-        <button type="button" class="btn btn-primary btn-sm" id="modalDoneBtn">Tutup</button>
-      </div>
-    `;
+    if ($("modalTitle")) $("modalTitle").textContent = `Detail Paket: ${uidOf(item)}`;
+    if ($("modalBody")) {
+      $("modalBody").innerHTML = `
+        <div class="modal-grid">
+          <div class="m-stat"><small>UID RFID</small><b>${safe(uidOf(item))}</b></div>
+          <div class="m-stat"><small>Produk</small><b>${safe(productOf(item))}</b></div>
+          <div class="m-stat"><small>Bobot Aktual</small><b class="tabular">${Number.isFinite(w) ? w.toFixed(1) + " g" : "-"}</b></div>
+          <div class="m-stat"><small>Hasil Klasifikasi</small><span class="pill ${st === "valid" ? "valid" : st === "reject" ? "reject" : ""}">${label}</span></div>
+          <div class="m-stat"><small>Bobot Standar</small><b class="tabular">${Number.isFinite(std) ? std.toFixed(1) + " g" : "Tidak dicatat"}</b></div>
+          <div class="m-stat"><small>Selisih</small><b class="tabular" style="color:${diff === null ? "var(--ink-body)" : Math.abs(diff) <= 15 ? "var(--accent-status)" : "var(--accent-alert)"}">${diff === null ? "-" : (diff >= 0 ? "+" : "") + diff.toFixed(1) + " g"}</b></div>
+        </div>
+        <div class="m-stat" style="margin-bottom:14px;"><small>Waktu Transaksi</small><b>${safe(fmtTime(item._time ?? item.Timestamp))}</b></div>
+        <pre class="modal-json">${safe(JSON.stringify({
+          UID: uidOf(item),
+          Produk: productOf(item),
+          Bobot: Number.isFinite(w) ? w : null,
+          BeratStandar: Number.isFinite(std) ? std : undefined,
+          Status: item.Status ?? item.status ?? label,
+          Timestamp: item.Timestamp ?? item.timestamp ?? item.waktu ?? item.createdAt
+        }, null, 2))}</pre>
+        <div class="modal-actions">
+          <button type="button" class="btn-util" id="copyUidBtn">Salin UID</button>
+          <button type="button" class="btn-cta btn-cta-primary" id="modalDoneBtn">Tutup</button>
+        </div>
+      `;
+    }
 
-    $("detailModal").hidden = false;
-    $("detailModal").setAttribute("aria-hidden", "false");
+    if ($("detailModal")) {
+      $("detailModal").hidden = false;
+      $("detailModal").setAttribute("aria-hidden", "false");
+    }
 
-    $("copyUidBtn").onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(String(uidOf(item)));
-        showToast("UID disalin ke clipboard");
-      } catch {
-        showToast("Gagal menyalin UID");
-      }
-    };
-    $("modalDoneBtn").onclick = closeDetailModal;
+    const copyBtn = $("copyUidBtn");
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(String(uidOf(item)));
+          showToast("UID disalin ke clipboard");
+        } catch {
+          showToast("Gagal menyalin UID");
+        }
+      };
+    }
+
+    const doneBtn = $("modalDoneBtn");
+    if (doneBtn) doneBtn.onclick = closeDetailModal;
   }
 
   function closeDetailModal() {
-    $("detailModal").hidden = true;
-    $("detailModal").setAttribute("aria-hidden", "true");
+    if ($("detailModal")) {
+      $("detailModal").hidden = true;
+      $("detailModal").setAttribute("aria-hidden", "true");
+    }
   }
 
   function exportCsv() {
@@ -981,8 +1020,10 @@
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
-    $("themeBtn").textContent = theme === "dark" ? "☀" : "🌙";
-    $("themeBtn").setAttribute("aria-pressed", String(theme === "dark"));
+    if ($("themeBtn")) {
+      $("themeBtn").textContent = theme === "dark" ? "Mode Terang" : "Mode Gelap";
+      $("themeBtn").setAttribute("aria-pressed", String(theme === "dark"));
+    }
     localStorage.setItem("stockflow-theme", theme);
   }
 
@@ -993,56 +1034,52 @@
   }
 
   /* ---------- Event Listeners ---------- */
-  $("topLiveBtn").addEventListener("click", () => switchMode("live"));
-  $("sideLiveBtn").addEventListener("click", () => switchMode("live"));
-  $("topDemoBtn").addEventListener("click", () => switchMode("demo"));
-  $("sideDemoBtn").addEventListener("click", () => switchMode("demo"));
-  $("bannerSimBtn").addEventListener("click", () => switchMode("demo"));
+  $("topLiveBtn")?.addEventListener("click", () => switchMode("live"));
+  $("sideLiveBtn")?.addEventListener("click", () => switchMode("live"));
+  $("topDemoBtn")?.addEventListener("click", () => switchMode("demo"));
+  $("sideDemoBtn")?.addEventListener("click", () => switchMode("demo"));
+  $("bannerSimBtn")?.addEventListener("click", () => switchMode("demo"));
 
-  $("refreshBtn").addEventListener("click", () => {
+  $("refreshBtn")?.addEventListener("click", () => {
     load();
     showToast("Memperbarui data...");
   });
 
-  $("soundBtn").addEventListener("click", () => {
+  $("soundBtn")?.addEventListener("click", () => {
     state.soundOn = !state.soundOn;
-    $("soundBtn").textContent = state.soundOn ? "🔊" : "🔇";
+    $("soundBtn").textContent = state.soundOn ? "Suara: ON" : "Suara: OFF";
     $("soundBtn").setAttribute("aria-pressed", String(state.soundOn));
     if (state.soundOn) sfxScan();
     showToast(state.soundOn ? "Efek suara aktif" : "Efek suara dimatikan");
   });
 
-  $("themeBtn").addEventListener("click", () => {
+  $("themeBtn")?.addEventListener("click", () => {
     const current = document.documentElement.getAttribute("data-theme") || "light";
     applyTheme(current === "dark" ? "light" : "dark");
   });
 
-  $("heroArt").addEventListener("click", () => {
-    const art = $("heroArt");
-    art.classList.remove("ping");
-    void art.offsetWidth;
-    art.classList.add("ping");
+  $("heroArt")?.addEventListener("click", () => {
     sfxScan();
-    showToast("RFID + Load Cell siap memindai!");
+    showToast("Pusat sensor StockFlow aktif.");
   });
 
-  $("heroQuickScanBtn").addEventListener("click", () => {
-    $("simulator").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("heroQuickScanBtn")?.addEventListener("click", () => {
+    $("simulator")?.scrollIntoView({ behavior: "smooth", block: "center" });
     spawnRandomSimulation();
   });
 
-  $("heroAutoBtn").addEventListener("click", () => toggleAutoStream());
-  $("autoSimBtn").addEventListener("click", () => toggleAutoStream());
-  $("runSimBtn").addEventListener("click", () => runPackageSimulation());
+  $("heroAutoBtn")?.addEventListener("click", () => toggleAutoStream());
+  $("autoSimBtn")?.addEventListener("click", () => toggleAutoStream());
+  $("runSimBtn")?.addEventListener("click", () => runPackageSimulation());
 
-  $("randomUidBtn").addEventListener("click", () => {
-    $("simUidInput").value = randomUid();
+  $("randomUidBtn")?.addEventListener("click", () => {
+    if ($("simUidInput")) $("simUidInput").value = randomUid();
     updateWeightHint();
     sfxScan();
   });
 
-  $("simUidInput").addEventListener("input", updateWeightHint);
-  $("simWeightSlider").addEventListener("input", updateWeightHint);
+  $("simUidInput")?.addEventListener("input", updateWeightHint);
+  $("simWeightSlider")?.addEventListener("input", updateWeightHint);
 
   document.querySelectorAll(".chip-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -1052,16 +1089,16 @@
         prod: btn.dataset.prod,
         std: Number(btn.dataset.std)
       };
-      $("simWeightSlider").value = btn.dataset.weight;
-      $("simUidInput").value = randomUid();
+      if ($("simWeightSlider")) $("simWeightSlider").value = btn.dataset.weight;
+      if ($("simUidInput")) $("simUidInput").value = randomUid();
       updateWeightHint();
     });
   });
 
-  $("resetDemoBtn").addEventListener("click", () => {
+  $("resetDemoBtn")?.addEventListener("click", () => {
     toggleAutoStream(false);
     state.demoFaults = { rfidErr: false, scaleErr: false, weakWifi: false };
-    document.querySelectorAll(".btn-mini-pill").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".btn-util").forEach(b => b.classList.remove("active"));
     state.demoLogs = createSampleLogs();
     state.newestKey = null;
     if (state.mode !== "demo") switchMode("demo", true);
@@ -1069,8 +1106,8 @@
     showToast("Data simulasi dikembalikan ke awal");
   });
 
-  $("searchInput").addEventListener("input", renderRows);
-  $("statusFilter").addEventListener("change", e => setStatusFilter(e.target.value));
+  $("searchInput")?.addEventListener("input", renderRows);
+  $("statusFilter")?.addEventListener("change", e => setStatusFilter(e.target.value));
   document.querySelectorAll(".f-pill").forEach(btn => {
     btn.addEventListener("click", () => setStatusFilter(btn.dataset.val));
   });
@@ -1078,7 +1115,7 @@
     el.addEventListener("click", () => setStatusFilter(el.dataset.filter));
   });
 
-  $("donut").addEventListener("click", () => {
+  $("donut")?.addEventListener("click", () => {
     const order = ["all", "valid", "reject"];
     const next = order[(order.indexOf(state.filterStatus) + 1) % order.length];
     setStatusFilter(next);
@@ -1091,41 +1128,41 @@
       else { state.sortBy = col; state.sortDir = "desc"; }
       document.querySelectorAll("th.sortable").forEach(h => h.classList.remove("active-sort"));
       th.classList.add("active-sort");
-      $("sortWeight").textContent = state.sortBy === "weight" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
-      $("sortStatus").textContent = state.sortBy === "status" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
-      $("sortTime").textContent = state.sortBy === "time" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
+      if ($("sortWeight")) $("sortWeight").textContent = state.sortBy === "weight" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
+      if ($("sortStatus")) $("sortStatus").textContent = state.sortBy === "status" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
+      if ($("sortTime")) $("sortTime").textContent = state.sortBy === "time" ? (state.sortDir === "desc" ? "↓" : "↑") : "↕";
       renderRows();
     });
   });
 
-  $("logBody").addEventListener("click", e => {
+  $("logBody")?.addEventListener("click", e => {
     const row = e.target.closest("tr.log-row");
     if (!row) return;
     const item = state.logs.find(x => x._id === row.dataset.id);
     if (item) openDetailModal(item);
   });
 
-  $("exportCsvBtn").addEventListener("click", exportCsv);
+  $("exportCsvBtn")?.addEventListener("click", exportCsv);
   $("logWeightTableBtn")?.addEventListener("click", logWeightOnly);
   $("logWeightQuickBtn")?.addEventListener("click", logWeightOnly);
   $("motorStopBtn")?.addEventListener("click", () => setConveyorMotor(false, 0));
   $("motorStartBtn")?.addEventListener("click", () => setConveyorMotor(true, 255));
-  $("closeModalBtn").addEventListener("click", closeDetailModal);
-  $("detailModal").addEventListener("click", e => {
+  $("closeModalBtn")?.addEventListener("click", closeDetailModal);
+  $("detailModal")?.addEventListener("click", e => {
     if (e.target === $("detailModal")) closeDetailModal();
   });
 
-  $("toggleRfidFaultBtn").addEventListener("click", e => {
+  $("toggleRfidFaultBtn")?.addEventListener("click", e => {
     state.demoFaults.rfidErr = !state.demoFaults.rfidErr;
     e.currentTarget.classList.toggle("active", state.demoFaults.rfidErr);
     renderDevice();
   });
-  $("toggleScaleFaultBtn").addEventListener("click", e => {
+  $("toggleScaleFaultBtn")?.addEventListener("click", e => {
     state.demoFaults.scaleErr = !state.demoFaults.scaleErr;
     e.currentTarget.classList.toggle("active", state.demoFaults.scaleErr);
     renderDevice();
   });
-  $("toggleWeakWifiBtn").addEventListener("click", e => {
+  $("toggleWeakWifiBtn")?.addEventListener("click", e => {
     state.demoFaults.weakWifi = !state.demoFaults.weakWifi;
     e.currentTarget.classList.toggle("active", state.demoFaults.weakWifi);
     renderDevice();
@@ -1136,7 +1173,7 @@
   });
 
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !$("detailModal").hidden) {
+    if (e.key === "Escape" && !$("detailModal")?.hidden) {
       closeDetailModal();
       return;
     }
@@ -1151,7 +1188,7 @@
     }
   });
 
-  /* ---------- Init ---------- */
+  /* ---------- Inisialisasi ---------- */
   initTheme();
   updateWeightHint();
   if (!cfg.demoMode && (!cfg.databaseURL || cfg.databaseURL.includes("NAMA-PROJECT"))) {
