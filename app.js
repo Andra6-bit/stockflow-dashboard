@@ -378,13 +378,13 @@
     svg.innerHTML = `
       <defs>
         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#4778ed" stop-opacity="0.22"/>
-          <stop offset="100%" stop-color="#4778ed" stop-opacity="0"/>
+          <stop offset="0%" stop-color="#94623c" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#94623c" stop-opacity="0"/>
         </linearGradient>
       </defs>
       ${gridLines}
       <polygon points="${areaPoints}" fill="url(#chartGrad)"/>
-      <polyline points="${polyPoints}" fill="none" stroke="#4778ed" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="${polyPoints}" fill="none" stroke="#94623c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
       ${dots}
     `;
 
