@@ -133,15 +133,29 @@ body {
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--brown-light), var(--brown-primary));
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  background: var(--surface);
+  box-shadow: 4px 4px 10px var(--nm-dark), -4px -4px 10px var(--nm-light);
   display: grid;
   place-items: center;
-  font: 700 22px "Space Grotesk", sans-serif;
-  color: #ffffff;
-  box-shadow: 4px 4px 10px var(--nm-dark), -4px -4px 10px var(--nm-light);
+  padding: 3px;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.brand-mark:hover {
+  transform: scale(1.06) rotate(3deg);
+  box-shadow: 6px 6px 14px var(--nm-dark), -6px -6px 14px var(--nm-light);
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 12px;
 }
 
 .brand b {

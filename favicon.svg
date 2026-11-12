@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="sfBg" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ca8b58"/>
+      <stop offset="50%" stop-color="#94623c"/>
+      <stop offset="100%" stop-color="#5a3820"/>
+    </linearGradient>
+    <linearGradient id="sfRim" x1="8" y1="6" x2="40" y2="42" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#f5d4bc" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="sfGold" x1="18" y1="14" x2="30" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffe6c9"/>
+      <stop offset="100%" stop-color="#df9a59"/>
+    </linearGradient>
+    <linearGradient id="sfTop" x1="13" y1="11" x2="35" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fde5cd"/>
+      <stop offset="100%" stop-color="#e2ab7b"/>
+    </linearGradient>
+    <linearGradient id="sfLeft" x1="13" y1="18" x2="24" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#b4784a"/>
+      <stop offset="100%" stop-color="#8a532a"/>
+    </linearGradient>
+    <linearGradient id="sfRight" x1="24" y1="24" x2="35" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7e4a23"/>
+      <stop offset="100%" stop-color="#552f14"/>
+    </linearGradient>
+    <filter id="sfShadow" x="4" y="5" width="40" height="38" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2.5" stdDeviation="2" flood-color="#2c190d" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Container with Neumorphic Rim -->
+  <rect x="2" y="2" width="44" height="44" rx="14" fill="url(#sfBg)"/>
+  <rect x="2.5" y="2.5" width="43" height="43" rx="13.5" stroke="url(#sfRim)" stroke-width="1"/>
+
+  <!-- 3D Smart Package & RFID Conveyor Wave -->
+  <g filter="url(#sfShadow)">
+    <!-- Top Face -->
+    <path d="M24 10.5L35.5 17.2L24 24L12.5 17.2L24 10.5Z" fill="url(#sfTop)"/>
+    <!-- Left Face -->
+    <path d="M12.5 17.2L24 24V36.5L12.5 29.8V17.2Z" fill="url(#sfLeft)"/>
+    <!-- Right Face -->
+    <path d="M24 24L35.5 17.2V29.8L24 36.5V24Z" fill="url(#sfRight)"/>
+
+    <!-- Inner Golden S-Flow / Conveyor Ribbon on Top Face -->
+    <path d="M24 13.8L30.5 17.6L24 21.4L17.5 17.6L24 13.8Z" fill="url(#sfGold)"/>
+
+    <!-- Dynamic Flow Accents -->
+    <path d="M17.5 20.2L24 24M24 24V32M24 24L30.5 20.2" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9"/>
+
+    <!-- Wireless RFID Wave 1 -->
+    <path d="M33.5 10.5C36.8 12.4 38.8 15.2 38.8 18.5" stroke="#fff0de" stroke-width="2" stroke-linecap="round" stroke-opacity="0.9"/>
+    <!-- Wireless RFID Wave 2 -->
+    <path d="M37 7.5C41.2 9.9 43.5 13.8 43.5 18.5" stroke="#ffd9b3" stroke-width="1.8" stroke-linecap="round" stroke-opacity="0.65"/>
+  </g>
+</svg>
