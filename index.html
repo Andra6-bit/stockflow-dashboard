@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>StockFlow — IoT Monitoring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">S</div>
+      <div><b>stockflow</b><small>IoT CONTROL CENTER</small></div>
+    </div>
+
+    <div class="side-label">MENU UTAMA</div>
+    <nav class="side-nav" id="sideNav">
+      <a class="nav active" href="#overview" data-section="overview"><span>▦</span> Overview</a>
+      <a class="nav" href="#simulator" data-section="simulator"><span>⚙</span> Lab Simulator</a>
+      <a class="nav" href="#logs" data-section="logs"><span>≡</span> Log paket</a>
+      <a class="nav" href="#device" data-section="device"><span>⌁</span> Kesehatan perangkat</a>
+    </nav>
+
+    <div class="side-mode-box">
+      <div class="side-label" style="padding:0 0 8px">SUMBER DATA</div>
+      <div class="mode-switch" role="group" aria-label="Pilih sumber data">
+        <button type="button" class="mode-btn" id="sideLiveBtn" data-mode="live">Live</button>
+        <button type="button" class="mode-btn" id="sideDemoBtn" data-mode="demo">Simulasi</button>
+      </div>
+    </div>
+
+    <div class="side-bottom">
+      <div class="side-status">
+        <i class="dot" id="sideDot"></i>
+        <div>
+          <b id="sideConnection">Memuat...</b>
+          <small id="sideSub">Menyiapkan dashboard</small>
+        </div>
+      </div>
+      <small class="version">STOCK FLOW · INTERACTIVE MONITOR</small>
+    </div>
+  </aside>
+
+  <main class="main" id="overview">
+    <div class="mobile-nav" id="mobileNav">
+      <a class="m-pill active" href="#overview" data-section="overview">Overview</a>
+      <a class="m-pill" href="#simulator" data-section="simulator">Simulator</a>
+      <a class="m-pill" href="#logs" data-section="logs">Log Paket</a>
+      <a class="m-pill" href="#device" data-section="device">Perangkat</a>
+    </div>
+
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">MONITORING SISTEM / ESP8266</div>
+        <h1>Overview</h1>
+        <p class="muted" id="topbarSubtitle">Pantau proses penimbangan dan validasi paket secara terpusat.</p>
+      </div>
+      <div class="top-actions">
+        <div class="mode-pill" role="group" aria-label="Sumber data">
+          <button type="button" class="mode-pill-btn" id="topLiveBtn" data-mode="live">Live Firebase</button>
+          <button type="button" class="mode-pill-btn" id="topDemoBtn" data-mode="demo">Mode Simulasi</button>
+        </div>
+        <button class="btn btn-icon" id="soundBtn" title="Aktifkan/matikan efek suara" aria-pressed="true">🔊</button>
+        <button class="btn btn-icon" id="themeBtn" title="Ganti tema terang/gelap" aria-pressed="false">🌙</button>
+        <span class="live-pill"><i class="dot" id="topDot"></i><span id="connectionLabel">MEMUAT</span></span>
+        <button class="btn btn-quiet" id="refreshBtn" title="Refresh data (R)">↻ <span>Refresh</span></button>
+      </div>
+    </header>
+
+    <div class="connect-banner" id="connectBanner" hidden>
+      <div>
+        <strong id="bannerTitle">Live Firebase belum mengirim data / tidak terjangkau</strong>
+        <p id="bannerDesc">Anda dapat langsung mencoba semua fitur dashboard dengan Mode Simulasi interaktif.</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="bannerSimBtn">⚡ Jalankan Mode Simulasi</button>
+    </div>
+
+    <section class="hero-strip">
+      <div>
+        <div class="hero-kicker">AUTOMATED PACKAGE VALIDATION</div>
+        <h2>Setiap paket, <em>terpantau.</em></h2>
+        <p id="heroSubtitle">Data RFID dan berat digabungkan oleh NodeMCU, lalu dievaluasi dan dicatat sebagai satu transaksi.</p>
+        <div class="hero-cta" id="heroCta" hidden>
+          <button type="button" class="btn btn-glow" id="heroQuickScanBtn">⚡ Uji Scan Paket</button>
+          <button type="button" class="btn btn-glass" id="heroAutoBtn">▶ Auto Conveyor</button>
+        </div>
+      </div>
+      <div class="hero-art" id="heroArt" title="Klik untuk memindai!">
+        <div class="orbit orbit-one"></div>
+        <div class="orbit orbit-two"></div>
+        <div class="chip">RFID <b>+</b> SCALE</div>
+        <div class="hero-cube" id="heroCube">▣</div>
+        <div class="hero-scan-beam"></div>
+        <div class="hero-line"></div>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card clickable" data-filter="all" title="Klik untuk menampilkan semua paket">
+        <div class="stat-top"><span>Total paket</span><span class="stat-icon blue">▤</span></div>
+        <strong id="totalCount">0</strong>
+        <small>Seluruh transaksi tercatat · <span class="hint-link">Lihat semua</span></small>
+      </article>
+      <article class="stat-card clickable" data-filter="valid" title="Klik untuk memfilter paket valid">
+        <div class="stat-top"><span>Paket valid</span><span class="stat-icon green">✓</span></div>
+        <strong id="validCount">0</strong>
+        <small><b class="green-text" id="validPercent">0%</b> dari total paket · <span class="hint-link">Filter</span></small>
+      </article>
+      <article class="stat-card clickable" data-filter="reject" title="Klik untuk memfilter anomali / reject">
+        <div class="stat-top"><span>Anomali / reject</span><span class="stat-icon red">!</span></div>
+        <strong id="rejectCount">0</strong>
+        <small><b class="red-text" id="rejectPercent">0%</b> dari total paket · <span class="hint-link">Filter</span></small>
+      </article>
+      <article class="stat-card" id="avgCard">
+        <div class="stat-top"><span>Berat rata-rata</span><span class="stat-icon violet">⚖</span></div>
+        <strong id="averageWeight">—<small> g</small></strong>
+        <small id="weightRangeText">Rata-rata berat terukur</small>
+      </article>
+    </section>
+
+    <section class="panel simulator-panel" id="simulator" hidden>
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">INTERACTIVE LAB · PLAYGROUND</div>
+          <h3>Simulator Conveyor, RFID &amp; Timbangan HX711</h3>
+          <p class="muted">Pilih jenis paket atau geser beratnya, lalu jalankan conveyor untuk melihat simulasi sortir secara langsung.</p>
+        </div>
+        <div class="sim-head-actions">
+          <span class="status-badge" id="simModeBadge">MODE SIMULASI</span>
+          <button type="button" class="btn btn-quiet btn-sm" id="resetDemoBtn" title="Kembalikan data contoh awal">↺ Reset</button>
+        </div>
+      </div>
+
+      <div class="conveyor-stage" id="conveyorStage">
+        <div class="stage-station station-rfid" id="stationRfid">
+          <span class="station-tag">1. RFID RC522</span>
+          <div class="scanner-head">
+            <i class="scanner-led" id="rfidLed"></i>
+            <span id="rfidReadout">SIAP PINDAI</span>
+          </div>
+          <div class="laser-beam" id="laserBeam"></div>
+        </div>
+
+        <div class="stage-station station-scale" id="stationScale">
+          <span class="station-tag">2. LOAD CELL HX711</span>
+          <div class="lcd-screen" id="lcdScreen">000.0 g</div>
+          <div class="scale-pad"></div>
+        </div>
+
+        <div class="stage-station station-gate" id="stationGate">
+          <span class="station-tag">3. SERVO DIVERTER</span>
+          <div class="gate-arm" id="gateArm"></div>
+          <div class="gate-result" id="gateResult">MENUNGGU</div>
+        </div>
+
+        <div class="belt-track">
+          <div class="belt-stripes" id="beltStripes"></div>
+          <div class="sim-package" id="simPackage">
+            <span class="pkg-uid" id="pkgVisualUid">E280115A</span>
+            <small class="pkg-prod" id="pkgVisualProd">Produk A</small>
+          </div>
+        </div>
+        <div class="burst-layer" id="burstLayer"></div>
+      </div>
+
+      <div class="sim-controls">
+        <div class="preset-group">
+          <span class="ctrl-label">Pilih Paket Uji:</span>
+          <div class="preset-chips" id="presetChips">
+            <button type="button" class="chip-btn active" data-prod="Produk A" data-std="250" data-weight="249.2">Produk A · 250g</button>
+            <button type="button" class="chip-btn" data-prod="Produk B" data-std="280" data-weight="281.5">Produk B · 280g</button>
+            <button type="button" class="chip-btn" data-prod="Produk C" data-std="150" data-weight="149.4">Produk C · 150g</button>
+            <button type="button" class="chip-btn" data-prod="Produk E" data-std="500" data-weight="502.0">Produk E · 500g</button>
+            <button type="button" class="chip-btn warn" data-prod="Produk A" data-std="250" data-weight="195.0">Anomali Kurang</button>
+            <button type="button" class="chip-btn warn" data-prod="Produk C" data-std="150" data-weight="215.8">Anomali Lebih</button>
+          </div>
+        </div>
+
+        <div class="sim-inputs-row">
+          <label class="sim-field">
+            <span>UID Tag RFID</span>
+            <div class="uid-input-wrap">
+              <input type="text" id="simUidInput" value="E280115A" maxlength="16">
+              <button type="button" class="btn-mini" id="randomUidBtn" title="Acak UID">🎲</button>
+            </div>
+          </label>
+
+          <label class="sim-field sim-slider-field">
+            <span>Berat Aktual: <b id="simWeightLabel">249.2 g</b> <small id="simDiffHint">(Standar 250g · Toleransi ±15g)</small></span>
+            <input type="range" id="simWeightSlider" min="40" max="600" step="0.5" value="249.2">
+          </label>
+
+          <div class="sim-run-btns">
+            <button type="button" class="btn btn-primary" id="runSimBtn">📦 Scan &amp; Timbang</button>
+            <button type="button" class="btn btn-quiet" id="autoSimBtn">▶ Auto Stream</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-grid">
+      <div class="left-col">
+        <article class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">LIVE TELEMETRY CHART</div>
+              <h3>Grafik berat &amp; klasifikasi terbaru</h3>
+              <p class="muted">Arahkan kursor atau sentuh titik paket untuk melihat detail berat dan statusnya.</p>
+            </div>
+            <div class="chart-legend-mini">
+              <span><i class="legend-dot valid-bg"></i> Valid</span>
+              <span><i class="legend-dot reject-bg"></i> Reject</span>
+            </div>
+          </div>
+          <div class="spark-wrap" id="chartWrap">
+            <svg id="weightChart" viewBox="0 0 640 170" preserveAspectRatio="none" aria-label="Grafik berat paket"></svg>
+            <div class="chart-tooltip" id="chartTooltip" hidden></div>
+          </div>
+        </article>
+
+        <article class="panel recent-panel" id="logs">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">TRANSACTION STREAM</div>
+              <h3>Log paket terbaru</h3>
+              <p class="muted">Klik baris mana saja untuk membuka inspektur detail paket.</p>
+            </div>
+            <div class="panel-actions">
+              <span class="count-tag" id="logCount">0 RECORD</span>
+              <button type="button" class="btn btn-quiet btn-sm" id="exportCsvBtn" title="Unduh log sebagai CSV">⬇ CSV</button>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <label class="search">⌕ <input id="searchInput" placeholder="Cari UID atau nama produk..."></label>
+            <div class="filter-pills" id="filterPills">
+              <button type="button" class="f-pill active" data-val="all">Semua</button>
+              <button type="button" class="f-pill" data-val="valid">Valid</button>
+              <button type="button" class="f-pill" data-val="reject">Reject</button>
+            </div>
+            <select id="statusFilter" aria-label="Filter status">
+              <option value="all">Semua status</option>
+              <option value="valid">Valid</option>
+              <option value="reject">Anomali / Reject</option>
+            </select>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>IDENTITAS / UID</th>
+                  <th class="sortable" data-sort="weight">BERAT AKTUAL <span class="sort-ind" id="sortWeight">↕</span></th>
+                  <th class="sortable" data-sort="status">KLASIFIKASI <span class="sort-ind" id="sortStatus">↕</span></th>
+                  <th class="sortable active-sort" data-sort="time">WAKTU <span class="sort-ind" id="sortTime">↓</span></th>
+                </tr>
+              </thead>
+              <tbody id="logBody">
+                <tr><td colspan="4" class="empty">Belum ada data transaksi.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-foot">
+            <span id="showingText">Menampilkan 0 transaksi</span>
+            <span>Klik baris untuk detail &amp; perbandingan berat</span>
+          </div>
+        </article>
+      </div>
+
+      <article class="panel side-panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">SORTING SUMMARY</div>
+            <h3>Distribusi paket</h3>
+          </div>
+        </div>
+        <div class="donut-wrap">
+          <div class="donut" id="donut">
+            <div class="donut-center">
+              <strong id="donutTotal">0</strong>
+              <small id="donutSub">PAKET</small>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <button type="button" class="legend-item" data-filter="valid" title="Filter paket valid">
+            <i class="legend-dot valid-bg"></i>
+            <span>Valid</span>
+            <b id="legendValid">0</b>
+          </button>
+          <button type="button" class="legend-item" data-filter="reject" title="Filter paket anomali / reject">
+            <i class="legend-dot reject-bg"></i>
+            <span>Anomali / Reject</span>
+            <b id="legendReject">0</b>
+          </button>
+        </div>
+
+        <div class="accuracy-bar-wrap">
+          <div class="acc-head"><span>Rasio Kelolosan</span><b id="passRateText">0%</b></div>
+          <div class="acc-track"><div class="acc-fill" id="passRateBar"></div></div>
+        </div>
+
+        <div class="note-box">
+          <span>ⓘ</span>
+          <p id="summaryNote">Status klasifikasi pada mode Live berasal dari hasil evaluasi KNN pada firmware ESP8266. Pada Mode Simulasi, paket uji dievaluasi langsung di browser.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel device-panel" id="device">
+      <div class="panel-head">
+        <div>
+          <div class="eyebrow">DEVICE TELEMETRY</div>
+          <h3>Kesehatan perangkat</h3>
+          <p class="muted">Monitoring berdasarkan heartbeat yang dikirim ESP8266 (atau simulasi diagnostik sensor).</p>
+        </div>
+        <span class="status-badge unknown" id="deviceBadge">BELUM TERHUBUNG</span>
+      </div>
+
+      <div class="device-grid">
+        <div class="device-item">
+          <div class="device-symbol" id="espIcon">⌁</div>
+          <div>
+            <small>ESP8266</small>
+            <b id="espState">Belum ada heartbeat</b>
+            <span id="lastSeen">Menunggu data perangkat</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol">▧</div>
+          <div>
+            <small>RFID RC522</small>
+            <b id="rfidState">Tidak diketahui</b>
+            <span id="rfidDetail">Status sensor opsional</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol">⚖</div>
+          <div>
+            <small>LOAD CELL / HX711</small>
+            <b id="scaleState">Tidak diketahui</b>
+            <span id="scaleDetail">Status sensor opsional</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol">⚙</div>
+          <div>
+            <small>SERVO SG90</small>
+            <b id="servoState">Tidak diketahui</b>
+            <span id="servoDetail">Status belum dikirim</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol">g</div>
+          <div>
+            <small>BERAT LIVE</small>
+            <b id="liveWeight">—</b>
+            <span id="liveWeightDetail">Menunggu data timbangan</span>
+          </div>
+        </div>
+        <div class="device-item">
+          <div class="device-symbol">
+            <div class="wifi-bars" id="wifiBars">
+              <i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+          <div>
+            <small>Wi-Fi / RSSI</small>
+            <b id="wifiState">Tidak diketahui</b>
+            <span id="wifiDetail">Kekuatan sinyal opsional</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sim-fault-bar" id="simFaultBar" hidden>
+        <span>Uji Diagnostik Perangkat (Simulasi):</span>
+        <button type="button" class="btn-mini-pill" id="toggleRfidFaultBtn">Toggle Error RFID</button>
+        <button type="button" class="btn-mini-pill" id="toggleScaleFaultBtn">Toggle Error HX711</button>
+        <button type="button" class="btn-mini-pill" id="toggleWeakWifiBtn">Toggle Sinyal Lemah</button>
+      </div>
+
+      <p class="health-foot">Catatan: pada mode Live, dashboard tidak dapat menguji kondisi fisik sensor secara langsung. Indikator hanya akurat jika firmware mengirimkan heartbeat ke <code>/device/status</code>.</p>
+    </section>
+
+    <footer>STOCKFLOW <span>·</span> ESP8266 + RFID RC522 + LOAD CELL HX711 <span>·</span> HTTP REST</footer>
+  </main>
+
+  <div class="modal-backdrop" id="detailModal" hidden aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <div class="eyebrow">PACKAGE INSPECTOR</div>
+          <h3 id="modalTitle">Detail Paket</h3>
+        </div>
+        <button type="button" class="btn-close" id="closeModalBtn" aria-label="Tutup">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
