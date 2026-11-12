@@ -274,7 +274,8 @@ void checkFirebaseControl() {
   HTTPClient http;
   http.setTimeout(3500);
 
-  String url = String(FIREBASE_URL) + "/device/control.json";
+  // Periksa path /device/status/control.json (diizinkan oleh Firebase Rules /device/status)
+  String url = String(FIREBASE_URL) + "/device/status/control.json";
 
   if (!http.begin(client, url)) return;
 
@@ -313,7 +314,7 @@ void checkFirebaseControl() {
     if (payload.indexOf("\"tare\":true") != -1) {
       scale.tare(10);
       Serial.println(">>> [KONTROL WEB] Perintah Tare dijalankan.");
-      sendFirebase("/device/control", "PATCH", "{\"tare\":false}");
+      sendFirebase("/device/status/control", "PATCH", "{\"tare\":false}");
     }
     return;
   }
@@ -399,19 +400,19 @@ void handleSerial() {
   switch (first) {
     case '1':
       setMotor(true, 255);
-      sendFirebase("/device/control", "PATCH", "{\"motor\":true,\"speed\":255}");
+      sendFirebase("/device/status/control", "PATCH", "{\"motor\":true,\"speed\":255}");
       sendDeviceStatus();
       break;
 
     case '2':
       setMotor(true, 160);
-      sendFirebase("/device/control", "PATCH", "{\"motor\":true,\"speed\":160}");
+      sendFirebase("/device/status/control", "PATCH", "{\"motor\":true,\"speed\":160}");
       sendDeviceStatus();
       break;
 
     case '0':
       setMotor(false, 0);
-      sendFirebase("/device/control", "PATCH", "{\"motor\":false,\"speed\":0}");
+      sendFirebase("/device/status/control", "PATCH", "{\"motor\":false,\"speed\":0}");
       sendDeviceStatus();
       break;
 

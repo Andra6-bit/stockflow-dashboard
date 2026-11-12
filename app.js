@@ -592,11 +592,16 @@
     }
 
     try {
-      await patchFirebase("device/control", {
+      // Gunakan path device/status/control dan device/status agar kompatibel dengan Firebase Rules (/device/status)
+      await patchFirebase("device/status/control", {
         motor: shouldRun,
         speed: speed,
         command: shouldRun ? "run" : "stop",
         updatedAt: { ".sv": "timestamp" }
+      });
+      await patchFirebase("device/status", {
+        motorRunning: shouldRun,
+        motorSpeed: speed
       });
       showToast(shouldRun ? "▶ Perintah RUN terkirim ke ESP8266" : "🛑 Perintah STOP terkirim ke ESP8266");
       setTimeout(load, 800);
