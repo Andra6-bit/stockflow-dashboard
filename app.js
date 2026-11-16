@@ -1607,9 +1607,8 @@
 
   /* ---------- Inisialisasi ---------- */
   if (window.StockFlowAuth) {
-    const activeUser = window.StockFlowAuth.getUser();
-    if (!activeUser) {
-      window.StockFlowAuth.requireAuth("login.html");
+    const activeUser = window.StockFlowAuth.requireAuth("login.html");
+    if (!activeUser && !window.StockFlowAuth.isGuest()) {
       return;
     }
     window.StockFlowAuth.applyUIPermissions();

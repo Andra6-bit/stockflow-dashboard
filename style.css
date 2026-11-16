@@ -1756,6 +1756,11 @@ body[data-mode="live"] [data-section="simulator"] {
   color: #F7F1EA;
 }
 
+.user-role-badge.badge-guest {
+  background: var(--surface-shadow);
+  color: var(--ink-heading);
+}
+
 .btn-logout {
   border: var(--subtle-border);
   background: var(--surface);

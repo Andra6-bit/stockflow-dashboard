@@ -6,6 +6,7 @@
 (() => {
   const SESSION_KEY = "stockflow_auth_session";
   const THEME_KEY = "stockflow-theme";
+  const GUEST_KEY = "stockflow_guest_mode";
   const USERS_STORAGE_KEY = "stockflow_custom_users";
 
   // Basis data akun resmi bawaan sistem kendali IoT StockFlow
@@ -48,7 +49,35 @@
     return [...DEFAULT_ACCOUNTS, ...getCustomAccounts()];
   }
 
+  // Dapatkan URL tujuan yang aman dan memperhitungkan subdirektori (GitHub Pages /stockflow-dashboard/)
+  function resolvePageUrl(filename) {
+    if (window.location.protocol === "file:") return filename;
+    let pathname = window.location.pathname || "/";
+    if (pathname.endsWith(".html") || pathname.includes(".htm")) {
+      pathname = pathname.substring(0, pathname.lastIndexOf("/") + 1);
+    } else if (!pathname.endsWith("/")) {
+      pathname += "/";
+    }
+    return window.location.origin + pathname + filename;
+  }
+
   const StockFlowAuth = {
+    resolveUrl(filename) {
+      return resolvePageUrl(filename);
+    },
+
+    // Mode Tamu / Pemantau Publik (Pengunjung umum)
+    isGuest() {
+      return sessionStorage.getItem(GUEST_KEY) === "true";
+    },
+
+    enterGuestMode() {
+      sessionStorage.setItem(GUEST_KEY, "true");
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_KEY);
+      window.location.replace(resolvePageUrl("index.html"));
+    },
+
     // Ambil daftar seluruh pengguna untuk ditampilkan di panel kelola pengguna (Admin)
     getUsers() {
       return getAllAccounts().map(u => ({
@@ -246,6 +275,7 @@
       const storage = remember ? localStorage : sessionStorage;
       sessionStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(GUEST_KEY);
 
       storage.setItem(SESSION_KEY, JSON.stringify(sessionData));
 
@@ -259,28 +289,40 @@
     logout(redirect = true) {
       sessionStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(GUEST_KEY);
       if (redirect) {
-        window.location.href = "login.html";
+        window.location.href = resolvePageUrl("login.html");
       }
     },
 
-    // Proteksi halaman dashboard (hanya bisa diakses jika sudah login)
+    // Proteksi halaman dashboard (hanya bisa diakses jika sudah login atau mode tamu)
     requireAuth(redirectUrl = "login.html") {
       const user = this.getUser();
-      if (!user) {
-        sessionStorage.setItem("stockflow_redirect_target", window.location.href);
-        window.location.replace(redirectUrl);
-        return null;
+      if (user) return user;
+
+      // Izinkan akses mode tamu
+      if (this.isGuest()) {
+        return {
+          username: "tamu",
+          name: "Mode Tamu",
+          role: "guest",
+          roleLabel: "Tamu",
+          isGuest: true
+        };
       }
-      return user;
+
+      // Jika belum ada sesi dan bukan tamu, alihkan ke login
+      sessionStorage.setItem("stockflow_redirect_target", window.location.href);
+      window.location.replace(resolvePageUrl(redirectUrl));
+      return null;
     },
 
     // Terapkan batasan antarmuka berdasarkan peran (RBAC) di dashboard
     applyUIPermissions() {
       const user = this.getUser();
-      if (!user) return;
-
-      const isOp = user.role === "operator";
+      const isGuestMode = !user && this.isGuest();
+      const isOp = isGuestMode || (user && user.role === "operator");
+      const isAdmin = user && user.role === "admin";
 
       // Elemen yang hanya boleh diakses Admin
       const adminOnlyIds = [
@@ -296,7 +338,7 @@
       adminOnlyIds.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (isOp) {
+        if (!isAdmin) {
           el.disabled = true;
           el.setAttribute("title", "Akses dibatasi: Hanya Administrator yang berwenang.");
           el.style.opacity = "0.45";
@@ -311,22 +353,44 @@
       // Tombol Kelola Pengguna (hanya tampil untuk Admin)
       const userManageBtn = document.getElementById("openUserModalBtn");
       if (userManageBtn) {
-        if (isOp) {
-          userManageBtn.style.display = "none";
-        } else {
-          userManageBtn.style.display = "inline-flex";
-        }
+        userManageBtn.style.display = isAdmin ? "inline-flex" : "none";
       }
 
       // Tampilkan info peran di header jika container tersedia
       const roleBadge = document.getElementById("userRoleBadge");
       const nameLabel = document.getElementById("userNameLabel");
-      if (roleBadge) {
-        roleBadge.textContent = user.roleLabel;
-        roleBadge.className = "user-role-badge " + (user.role === "admin" ? "badge-admin" : "badge-operator");
-      }
-      if (nameLabel) {
-        nameLabel.textContent = user.name;
+      const logoutBtn = document.getElementById("logoutBtn");
+
+      if (isGuestMode) {
+        if (roleBadge) {
+          roleBadge.textContent = "Tamu";
+          roleBadge.className = "user-role-badge badge-guest";
+        }
+        if (nameLabel) {
+          nameLabel.textContent = "Mode Pantau";
+        }
+        if (logoutBtn) {
+          logoutBtn.textContent = "Masuk";
+          logoutBtn.setAttribute("title", "Masuk dengan akun Admin / Operator");
+          logoutBtn.onclick = () => {
+            window.location.href = resolvePageUrl("login.html");
+          };
+        }
+      } else if (user) {
+        if (roleBadge) {
+          roleBadge.textContent = user.roleLabel;
+          roleBadge.className = "user-role-badge " + (user.role === "admin" ? "badge-admin" : "badge-operator");
+        }
+        if (nameLabel) {
+          nameLabel.textContent = user.name;
+        }
+        if (logoutBtn) {
+          logoutBtn.textContent = "Keluar";
+          logoutBtn.setAttribute("title", "Keluar dari sesi dashboard");
+          logoutBtn.onclick = () => {
+            StockFlowAuth.logout(true);
+          };
+        }
       }
     }
   };
