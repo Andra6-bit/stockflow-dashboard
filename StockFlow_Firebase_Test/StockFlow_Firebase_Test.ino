@@ -807,17 +807,17 @@ void loop() {
 
         if (hasilKelas == 0) {
           statusStr = "Valid - Jalur 1 (Belok Samping)";
-          targetAngle = SERVO_JALUR1; // 135° (Paket Ringan belok ke samping)
+          targetAngle = SERVO_JALUR1; // 135° (Paket Ringan belok ke wadah samping)
         } else if (hasilKelas == 1) {
           statusStr = "Valid - Jalur 2 (Lolos Lurus)";
-          targetAngle = SERVO_JALUR2; // 90° (Paket Sedang lolos lurus ke ujung)
+          targetAngle = SERVO_JALUR2; // 90° (Paket Sedang lolos lurus ke wadah ujung)
         } else {
-          statusStr = "Reject / Anomali";
-          targetAngle = SERVO_STANDBY; // 90° (Anomali / di luar batas)
+          statusStr = "Reject / Anomali (Motor Stop)";
+          targetAngle = SERVO_STANDBY; // 90° (Anomali / cacat bobot)
         }
 
-        // 4. Gerakkan servo pemilah
-        if (SERVO_MOVE_ON_SCAN && servoOK) {
+        // 4. Gerakkan servo pemilah (jika jalur belok samping)
+        if (SERVO_MOVE_ON_SCAN && servoOK && targetAngle != SERVO_STANDBY) {
           moveServo(targetAngle, "sorting");
         }
         scanCounter++;
@@ -825,16 +825,27 @@ void loop() {
         // 5. Kirim log transaksi lengkap ke Firebase
         sendLogRecord(uid, grams, raw, targetAngle, statusStr, "Sortir KNN Edge");
 
-        // 6. Jalankan kembali motor untuk meloloskan barang melewati pintu servo
-        if (motorSpeed >= 250) {
-          digitalWrite(MOTOR_IN1, HIGH);
+        // 6. Penanganan aktuator berdasarkan hasil klasifikasi
+        if (hasilKelas == 2) {
+          // ANOMALI / REJECT:
+          // Motor konveyor dikunci mati seketika (Emergency QC Stop) agar paket tidak lolos ke mana-mana
+          setMotor(false, 0);
+          sendFirebase("/device/status/control", "PATCH", "{\"motor\":false,\"command\":\"stop\"}");
+          Serial.println(">>> [QC STOP] Anomali terdeteksi! Motor dihentikan untuk inspeksi manual.");
+          servoToStandby();
         } else {
-          analogWrite(MOTOR_IN1, motorSpeed);
-        }
-        delay(1100); // Waktu barang terdorong melewati servo
+          // PAKET VALID (Jalur 1 atau Jalur 2):
+          // Jalankan kembali motor untuk meloloskan paket ke wadah tujuan
+          if (motorSpeed >= 250) {
+            digitalWrite(MOTOR_IN1, HIGH);
+          } else {
+            analogWrite(MOTOR_IN1, motorSpeed);
+          }
+          delay(1100); // Waktu barang terdorong melewati area sortir
 
-        // 7. Kembalikan servo ke posisi standby
-        servoToStandby();
+          // Kembalikan servo ke posisi standby menempel dinding
+          servoToStandby();
+        }
 
         // 8. Buka gembok transaksi
         sedangProsesSortir = false;
