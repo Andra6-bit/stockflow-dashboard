@@ -1158,6 +1158,120 @@ td:first-child {
   padding: 32px;
 }
 
+.modal-bento-card-large {
+  max-width: 660px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.scale-mode-panel {
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  border-radius: var(--radius-elem);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.scale-step-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 600px) {
+  .scale-step-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.scale-step-card {
+  background: var(--surface);
+  border: var(--subtle-border);
+  border-radius: var(--radius-elem);
+  padding: 16px;
+}
+
+.scale-step-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: 8px;
+}
+
+.scale-readout-well {
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.scale-readout-uid {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-heading);
+  letter-spacing: 0.5px;
+  word-break: break-all;
+}
+
+.scale-readout-weight {
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink-heading);
+}
+
+.scale-input,
+.scale-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ink-heading);
+  outline: none;
+}
+
+.scale-input-sm {
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink-heading);
+  outline: none;
+}
+
+.scale-enroll-card {
+  background: var(--surface);
+  border: var(--subtle-border);
+  border-radius: var(--radius-elem);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.scale-dataset-wrap {
+  max-height: 140px;
+  overflow-y: auto;
+  background: var(--surface);
+  box-shadow: var(--nm-inset-sm);
+  border-radius: 10px;
+  padding: 6px;
+}
+
 .modal-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -41,8 +41,8 @@
 // =====================================
 // KONFIGURASI JARINGAN & FIREBASE
 // =====================================
-const char* WIFI_SSID     = "TP-Link_DD96";
-const char* WIFI_PASSWORD = "30665156";
+const char* WIFI_SSID     = "Infinix HOT 50 Pro+";
+const char* WIFI_PASSWORD = "zulfalanang";
 
 const char* FIREBASE_URL =
   "https://stockflow-iot-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -70,10 +70,11 @@ const bool SERVO_MOVE_ON_SCAN = true;
 // =====================================
 // INTERVAL WAKTU & TIMING (ms)
 // =====================================
-const unsigned long PUSH_INTERVAL         = 3000; // Heartbeat status + berat live ke web
+const unsigned long PUSH_INTERVAL         = 3000; // Heartbeat status + berat live ke web (mode normal)
+const unsigned long PUSH_INTERVAL_SCALE   = 700;  // Streaming cepat saat mode timbangan aktif
 const unsigned long CONTROL_POLL_INTERVAL = 1500; // Cek perintah motor dari Firebase
 const unsigned long READ_COOLDOWN         = 2000; // Jeda minimal antar pembacaan RFID
-const unsigned long SETTLE_MS             = 500;  // Waktu timbangan stabil saat barang berhenti
+const unsigned long SETTLE_MS             = 400;  // Waktu timbangan stabil saat barang berhenti
 
 // =====================================
 // KALIBRASI HX711 & EEPROM
@@ -97,6 +98,11 @@ bool servoOK       = false;
 bool motorRunning  = false;
 int  motorSpeed    = 255;  // PWM 0 - 255
 
+// Status Mode Timbangan & Gembok Transaksi
+bool scaleMode          = false; // true = Mode Timbangan & Kalibrasi (Motor OFF, RFID catat UID)
+bool sedangProsesSortir = false; // Gembok transaksi anti double-scan
+unsigned long waktuSelesaiSortir = 0;
+
 String servoState  = "standby";
 int servoAngle     = SERVO_STANDBY;
 
@@ -113,6 +119,71 @@ int scanCounter               = 0;
 // Variabel auto-log untuk beban tanpa RFID
 unsigned long weightStableStart   = 0;
 bool weightLoggedForObject        = false;
+
+// =====================================
+// MODEL EDGE AI: K-NEAREST NEIGHBORS (KNN)
+// =====================================
+struct KNNSample {
+  float weight;      // Bobot referensi (gram)
+  int label;         // 0: Jalur 1 (Ringan), 1: Jalur 2 (Sedang), 2: Anomali/Reject
+};
+
+// Data latih acuan awal (dapat disesuaikan lewat kalibrasi)
+// Kelas 0: Ringan (~50 - 120g)   -> Jalur 1 (45°)
+// Kelas 1: Sedang (~180 - 320g)  -> Jalur 2 (135°)
+// Kelas 2: Anomali (< 20g / > 500g) -> Reject / Standby (90°)
+const KNNSample DEFAULT_KNN_DATA[] = {
+  {65.0, 0}, {72.5, 0}, {75.0, 0}, {78.2, 0}, {85.0, 0}, {95.0, 0},
+  {220.0, 1}, {245.0, 1}, {250.0, 1}, {255.5, 1}, {270.0, 1}, {295.0, 1},
+  {10.0, 2}, {15.0, 2}, {480.0, 2}, {550.0, 2}
+};
+const int DEFAULT_KNN_SIZE = sizeof(DEFAULT_KNN_DATA) / sizeof(DEFAULT_KNN_DATA[0]);
+
+int predictKNN(float inputWeight, int k = 3) {
+  if (inputWeight < 18.0 || inputWeight > 650.0) {
+    return 2; // Otomatis anomali jika di luar rentang wajar
+  }
+
+  float distances[DEFAULT_KNN_SIZE];
+  int indices[DEFAULT_KNN_SIZE];
+
+  for (int i = 0; i < DEFAULT_KNN_SIZE; i++) {
+    distances[i] = fabs(inputWeight - DEFAULT_KNN_DATA[i].weight);
+    indices[i] = i;
+  }
+
+  // Cari K tetangga terdekat (sorting parsial sederhana)
+  for (int i = 0; i < k; i++) {
+    for (int j = i + 1; j < DEFAULT_KNN_SIZE; j++) {
+      if (distances[j] < distances[i]) {
+        float td = distances[i];
+        distances[i] = distances[j];
+        distances[j] = td;
+
+        int ti = indices[i];
+        indices[i] = indices[j];
+        indices[j] = ti;
+      }
+    }
+  }
+
+  // Voting suara terbanyak dari K tetangga
+  int votes[3] = {0, 0, 0};
+  for (int i = 0; i < k; i++) {
+    int lbl = DEFAULT_KNN_DATA[indices[i]].label;
+    if (lbl >= 0 && lbl < 3) votes[lbl]++;
+  }
+
+  int bestClass = 2;
+  int maxVotes = -1;
+  for (int c = 0; c < 3; c++) {
+    if (votes[c] > maxVotes) {
+      maxVotes = votes[c];
+      bestClass = c;
+    }
+  }
+  return bestClass;
+}
 
 // =====================================
 // UTILITAS WAKTU & FORMAT
@@ -224,6 +295,7 @@ void sendDeviceStatus() {
 
   String json = "{";
   json += "\"online\":true,";
+  json += "\"scaleMode\":";    json += scaleMode ? "true," : "false,";
   json += "\"rfidOk\":";       json += rfidOK  ? "true," : "false,";
   json += "\"hx711Ok\":";      json += hx711OK ? "true," : "false,";
   json += "\"servoOk\":";      json += servoOK ? "true," : "false,";
@@ -236,6 +308,7 @@ void sendDeviceStatus() {
   json += "\"weightGram\":";   json += String(currentWeight, 1); json += ",";
   json += "\"weightRaw\":";    json += String(currentRaw); json += ",";
   json += "\"lastUID\":\"";    json += lastUID; json += "\",";
+  json += "\"lastScannedUID\":\""; json += lastUID; json += "\",";
   json += "\"uptimeSec\":";    json += String(millis() / 1000); json += ",";
   json += "\"freeHeap\":";     json += String(ESP.getFreeHeap()); json += ",";
   json += "\"lastSeen\":\"";   json += getTimestamp(); json += "\",";
@@ -284,13 +357,33 @@ void checkFirebaseControl() {
     String payload = http.getString();
     http.end();
 
-    // 1. Cek parameter "motor": true / false
+    // 1. Cek parameter "scaleMode": true / false (Mode Timbangan & Kalibrasi)
+    int smIdx = payload.indexOf("\"scaleMode\":");
+    if (smIdx != -1) {
+      String sub = payload.substring(smIdx + 12);
+      sub.trim();
+      bool shouldScale = (sub.startsWith("true") || sub.startsWith("1"));
+      if (shouldScale != scaleMode) {
+        scaleMode = shouldScale;
+        Serial.print(">>> [KONTROL WEB] Mode Timbangan: ");
+        Serial.println(scaleMode ? "AKTIF (Motor dikunci mati)" : "NONAKTIF (Mode Konveyor Normal)");
+        if (scaleMode) {
+          setMotor(false, 0); // Kunci mati motor saat mode timbangan
+        }
+        sendDeviceStatus();
+      }
+    }
+
+    // 2. Cek parameter "motor": true / false
     int mIdx = payload.indexOf("\"motor\":");
     if (mIdx != -1) {
       String sub = payload.substring(mIdx + 8);
       sub.trim();
       bool shouldRun = (sub.startsWith("true") || sub.startsWith("1"));
-      if (shouldRun != motorRunning) {
+      if (scaleMode) {
+        // Jika mode timbangan aktif, motor dipaksa tetap mati
+        if (motorRunning) setMotor(false, 0);
+      } else if (shouldRun != motorRunning) {
         Serial.print(">>> [KONTROL WEB] Motor diubah: ");
         Serial.println(shouldRun ? "JALAN" : "BERHENTI");
         setMotor(shouldRun, motorSpeed);
@@ -298,23 +391,24 @@ void checkFirebaseControl() {
       }
     }
 
-    // 2. Cek parameter "speed": int (0 - 255)
+    // 3. Cek parameter "speed": int (0 - 255)
     int sIdx = payload.indexOf("\"speed\":");
     if (sIdx != -1) {
       int spd = payload.substring(sIdx + 8).toInt();
       if (spd > 0 && spd <= 255 && spd != motorSpeed) {
         motorSpeed = spd;
-        if (motorRunning) {
+        if (motorRunning && !scaleMode) {
           analogWrite(MOTOR_IN1, motorSpeed);
         }
       }
     }
 
-    // 3. Cek perintah khusus (tare atau log beban instan dari web)
+    // 4. Cek perintah khusus Tare (Nol-kan timbangan)
     if (payload.indexOf("\"tare\":true") != -1) {
       scale.tare(10);
       Serial.println(">>> [KONTROL WEB] Perintah Tare dijalankan.");
       sendFirebase("/device/status/control", "PATCH", "{\"tare\":false}");
+      sendDeviceStatus();
     }
     return;
   }
@@ -477,6 +571,17 @@ void handleSerial() {
       break;
     }
 
+    case 'm':
+    case 'M':
+      scaleMode = !scaleMode;
+      if (scaleMode) {
+        setMotor(false, 0); // Kunci mati motor saat mode timbangan aktif
+      }
+      Serial.print(">>> [MODE] Mode Timbangan saat ini: ");
+      Serial.println(scaleMode ? "AKTIF (Motor STOP & Siap Pendaftaran)" : "NONAKTIF (Mode Konveyor Normal)");
+      sendDeviceStatus();
+      break;
+
     default:
       Serial.println("---------------------------------------------");
       Serial.println("DAFTAR PERINTAH SERIAL MONITOR:");
@@ -486,6 +591,7 @@ void handleSerial() {
       Serial.println(" [3] Servo Belok KIRI (45° Jalur 1)");
       Serial.println(" [4] Servo Posisi TENGAH (90° Standby)");
       Serial.println(" [5] Servo Belok KANAN (135° Jalur 2)");
+      Serial.println(" [m] Toggle Mode Timbangan / Mode Konveyor");
       Serial.println(" [w] Catat Log Beban Saja ke Firebase");
       Serial.println(" [t] Tare / Reset Timbangan ke 0.0 gram");
       Serial.println(" [c<gram>] Kalibrasi (contoh: c200)");
@@ -622,13 +728,16 @@ void loop() {
   }
 
   // D. Kirim Heartbeat & Berat Live ke /device/status
-  if (millis() - lastPush >= PUSH_INTERVAL) {
+  unsigned long currentPushInterval = scaleMode ? PUSH_INTERVAL_SCALE : PUSH_INTERVAL;
+  if (millis() - lastPush >= currentPushInterval) {
     lastPush = millis();
     updateSensors();
 
     Serial.print("[MONITOR] Berat: ");
     Serial.print(currentWeight, 1);
-    Serial.print(" g | Motor: ");
+    Serial.print(" g | Mode: ");
+    Serial.print(scaleMode ? "TIMBANGAN" : "KONVEYOR");
+    Serial.print(" | Motor: ");
     Serial.print(motorRunning ? "JALAN" : "STOP");
     Serial.print(" | RFID: ");
     Serial.print(rfidOK ? "OK" : "X");
@@ -640,94 +749,120 @@ void loop() {
     sendDeviceStatus();
   }
 
-  // E. Deteksi Kartu / Tag RFID (Sesuai Referensi sketch_nov9a)
+  // E. Deteksi Kartu / Tag RFID
   if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     String uid = readUID();
     rfid.PICC_HaltA();
     rfid.PCD_StopCrypto1();
 
-    if (millis() - lastRead >= READ_COOLDOWN) {
-      lastRead = millis();
+    if (scaleMode) {
+      // -------------------------------------------------------------
+      // MODE TIMBANGAN & PENDAFTARAN AKTIF:
+      // Hanya catat UID kartu agar terbaca di dashboard web tanpa memicu sortir
+      // -------------------------------------------------------------
       lastUID = uid;
       rfidOK = true;
+      Serial.println("\n>>> [MODE TIMBANGAN] Tag RFID Terdeteksi: " + uid);
+      Serial.println(">>> Mengirimkan UID ke Firebase untuk proses pendaftaran...");
+      sendFirebase("/device/status", "PATCH", "{\"lastUID\":\"" + uid + "\",\"lastScannedUID\":\"" + uid + "\"}");
+      delay(300);
+    } else {
+      // -------------------------------------------------------------
+      // MODE KONVEYOR NORMAL:
+      // Periksa gembok transaksi untuk mencegah double-scan
+      // -------------------------------------------------------------
+      bool sistemSiap = (!sedangProsesSortir) && (millis() - waktuSelesaiSortir > 1200);
+      if (sistemSiap) {
+        sedangProsesSortir = true;
+        lastUID = uid;
+        rfidOK = true;
 
-      Serial.println("\n=============================================");
-      Serial.println(">>> [RFID DETECTED] UID Kartu: " + uid);
+        Serial.println("\n=============================================");
+        Serial.println(">>> [RFID DETECTED] UID: " + uid);
+        Serial.println(">>> Menyelaraskan posisi paket ke tengah timbangan (2 cm)...");
 
-      // Hentikan sejenak motor jika sedang berjalan agar penimbangan presisi
-      bool previousMotorState = motorRunning;
-      if (previousMotorState) {
+        // 1. Jeda sekejap saat motor jalan agar badan paket duduk pas di atas timbangan
+        delay(350);
+
+        // 2. Hentikan motor sejenak agar penimbangan presisi tanpa getaran dinamo
         digitalWrite(MOTOR_IN1, LOW);
-      }
+        delay(SETTLE_MS);
 
-      // Beri waktu timbangan stabil (settle)
-      delay(SETTLE_MS);
+        long raw = 0;
+        float grams = 0;
+        if (readScale(raw, grams, 5)) {
+          currentRaw = raw;
+          currentWeight = grams;
+          Serial.print(">>> [HX711] Berat Terukur: ");
+          Serial.print(grams, 1);
+          Serial.println(" gram");
+        } else {
+          Serial.println(">>> [HX711] Sensor timbangan tidak merespons!");
+        }
 
-      long raw = 0;
-      float grams = 0;
-      if (readScale(raw, grams, 5)) {
-        currentRaw = raw;
-        currentWeight = grams;
-        Serial.print(">>> [HX711] Berat Terukur: ");
-        Serial.print(grams, 1);
-        Serial.print(" gram (Raw: ");
-        Serial.print(raw);
-        Serial.println(")");
-      } else {
-        Serial.println(">>> [HX711] Sensor timbangan tidak merespons!");
-      }
+        // 3. INFERENSI EDGE AI (MODEL KNN)
+        int hasilKelas = predictKNN(grams, 3);
+        String statusStr = "Valid - Jalur 1";
+        int targetAngle = SERVO_STANDBY;
 
-      // Klasifikasi status paket
-      String statusStr = "Valid";
-      if (grams < 20.0 || grams > 800.0) {
-        statusStr = "Anomali";
-      }
+        if (hasilKelas == 0) {
+          statusStr = "Valid - Jalur 1";
+          targetAngle = SERVO_JALUR1; // 45° (Paket Ringan)
+        } else if (hasilKelas == 1) {
+          statusStr = "Valid - Jalur 2";
+          targetAngle = SERVO_JALUR2; // 135° (Paket Sedang)
+        } else {
+          statusStr = "Reject / Anomali";
+          targetAngle = SERVO_STANDBY; // 90° (Anomali / di luar batas)
+        }
 
-      // Gerakkan servo penyortir
-      int targetAngle = SERVO_STANDBY;
-      if (SERVO_MOVE_ON_SCAN && servoOK) {
-        targetAngle = (statusStr == "Valid") ? SERVO_JALUR1 : SERVO_JALUR2;
-        moveServo(targetAngle, "sorting");
-        delay(450);
-        servoToStandby();
-      }
-      scanCounter++;
+        // 4. Gerakkan servo pemilah
+        if (SERVO_MOVE_ON_SCAN && servoOK) {
+          moveServo(targetAngle, "sorting");
+        }
+        scanCounter++;
 
-      // Kirim log transaksi lengkap ke Firebase
-      sendLogRecord(uid, grams, raw, targetAngle, statusStr, "Paket Sortir");
+        // 5. Kirim log transaksi lengkap ke Firebase
+        sendLogRecord(uid, grams, raw, targetAngle, statusStr, "Sortir KNN Edge");
 
-      // Kembalikan motor ke status semula jika tadi sedang berjalan
-      if (previousMotorState && motorRunning) {
+        // 6. Jalankan kembali motor untuk meloloskan barang melewati pintu servo
         if (motorSpeed >= 250) {
           digitalWrite(MOTOR_IN1, HIGH);
         } else {
           analogWrite(MOTOR_IN1, motorSpeed);
         }
-      }
+        delay(1100); // Waktu barang terdorong melewati servo
 
-      sendDeviceStatus();
-      lastPush = millis();
-      Serial.println("=============================================\n");
+        // 7. Kembalikan servo ke posisi standby
+        servoToStandby();
+
+        // 8. Buka gembok transaksi
+        sedangProsesSortir = false;
+        waktuSelesaiSortir = millis();
+        sendDeviceStatus();
+        lastPush = millis();
+        Serial.println("=============================================\n");
+      }
     }
   }
 
-  // F. Fitur "Log Buat Beban Saja" Secara Otomatis
-  // Jika ada benda di atas timbangan (> 10 gram) selama 2.5 detik tanpa RFID,
-  // sistem akan otomatis mencatatnya sebagai transaksi "Beban Saja".
-  if (currentWeight > 10.0) {
-    if (weightStableStart == 0) {
-      weightStableStart = millis();
-    } else if (millis() - weightStableStart > 2500 && !weightLoggedForObject) {
-      weightLoggedForObject = true;
-      Serial.println("\n>>> [AUTO LOG BEBAN] Benda terdeteksi di timbangan tanpa scan RFID: " + String(currentWeight, 1) + " g");
-      sendLogRecord("BEBAN-ONLY", currentWeight, currentRaw, SERVO_STANDBY, "Beban Saja", "Penimbangan Otomatis");
-      sendDeviceStatus();
-      lastPush = millis();
+  // F. Fitur "Log Buat Beban Saja" Secara Otomatis (Hanya aktif saat Mode Konveyor)
+  if (!scaleMode) {
+    if (currentWeight > 10.0) {
+      if (weightStableStart == 0) {
+        weightStableStart = millis();
+      } else if (millis() - weightStableStart > 2500 && !weightLoggedForObject) {
+        weightLoggedForObject = true;
+        Serial.println("\n>>> [AUTO LOG BEBAN] Benda terdeteksi di timbangan tanpa scan RFID: " + String(currentWeight, 1) + " g");
+        sendLogRecord("BEBAN-ONLY", currentWeight, currentRaw, SERVO_STANDBY, "Beban Saja", "Penimbangan Otomatis");
+        sendDeviceStatus();
+        lastPush = millis();
+      }
+    } else if (currentWeight < 5.0) {
+      // Reset status saat timbangan kosong kembali
+      weightStableStart = 0;
+      weightLoggedForObject = false;
     }
-  } else if (currentWeight < 5.0) {
-    // Reset status saat timbangan kosong kembali
-    weightStableStart = 0;
-    weightLoggedForObject = false;
   }
 
   delay(20);

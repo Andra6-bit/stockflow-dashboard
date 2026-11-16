@@ -15,6 +15,19 @@
     ];
   };
 
+  const loadKnnSamples = () => {
+    try {
+      const saved = localStorage.getItem("stockflow_knn_samples");
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return [
+      { uid: "E280115A", prod: "Kopi Arabika Gayo", weight: 75.0, jalur: 0, label: "Jalur 1 (Ringan)" },
+      { uid: "04A1B2C3", prod: "Biji Robusta Temanggung", weight: 250.0, jalur: 1, label: "Jalur 2 (Sedang)" },
+      { uid: "AABB1020", prod: "Teh Hitam Walini", weight: 78.5, jalur: 0, label: "Jalur 1 (Ringan)" },
+      { uid: "91BC02D4", prod: "Kopi Liberika Riau", weight: 260.0, jalur: 1, label: "Jalur 2 (Sedang)" }
+    ];
+  };
+
   const state = {
     mode: cfg.demoMode ? "demo" : "live",
     logs: [],
@@ -23,6 +36,9 @@
     demoFaults: { rfidErr: false, scaleErr: false, weakWifi: false },
     motorRunning: false,
     motorSpeed: 255,
+    scaleMode: false,
+    scannedUid: "",
+    knnSamples: loadKnnSamples(),
     filterStatus: "all",
     sortBy: "time",
     sortDir: "desc",
@@ -81,8 +97,11 @@
     return timeValue(x.Timestamp ?? x.timestamp ?? x.waktu ?? x.createdAt) ?? timeValue(x.tsServer);
   }
 
-  function labelOf(st) {
-    return st === "valid" ? "VALID"
+  function labelOf(st, x) {
+    const rawSt = String(x?.Status ?? x?.status ?? "").toUpperCase();
+    if (rawSt.includes("JALUR 1")) return "JALUR 1 (KNN)";
+    if (rawSt.includes("JALUR 2")) return "JALUR 2 (KNN)";
+    return st === "valid" ? "VALID (KNN)"
       : st === "reject" ? "ANOMALI / REJECT"
       : st === "beban" ? "BEBAN SAJA"
       : st === "test" ? "SENSOR TEST"
@@ -317,7 +336,7 @@
     if ($("logBody")) {
       $("logBody").innerHTML = filtered.map(x => {
         const st = statusOf(x);
-        const label = labelOf(st);
+        const label = labelOf(st, x);
         const w = weightOf(x);
         const isNew = state.newestKey && x._id === state.newestKey;
         return `<tr class="log-row ${isNew ? "row-new" : ""}" data-id="${safe(x._id)}">
@@ -520,21 +539,72 @@
     const mState = $("espMotorState");
     const mDetail = $("espMotorDetail");
 
+    // Status Mode Timbangan & Kalibrasi Digital
+    const isScaleMode = Boolean(live?.scaleMode ?? state.scaleMode);
+    state.scaleMode = isScaleMode;
+    if ($("scaleModeBadge")) {
+      $("scaleModeBadge").style.display = isScaleMode ? "inline-block" : "none";
+    }
+    if ($("scaleModeHeading")) {
+      $("scaleModeHeading").textContent = isScaleMode ? "Status: Mode Timbangan Aktif" : "Status: Mode Konveyor Normal";
+    }
+    if ($("scaleModeSub")) {
+      $("scaleModeSub").textContent = isScaleMode
+        ? "Dinamo motor dikunci mati demi akurasi penimbangan statis."
+        : "Aktifkan mode timbangan untuk mematikan dinamo dan mengukur bobot secara statis.";
+    }
+    if ($("toggleScaleModeBtn")) {
+      $("toggleScaleModeBtn").textContent = isScaleMode ? "Matikan Mode Timbangan" : "Aktifkan Mode Timbangan";
+      $("toggleScaleModeBtn").className = isScaleMode ? "btn-cta btn-cta-danger" : "btn-cta btn-cta-primary";
+    }
+
     if (mBadge) {
-      mBadge.textContent = !online && state.mode !== "demo" ? "PERANGKAT OFFLINE" : (motorRun ? "MOTOR BERJALAN" : "MOTOR BERHENTI");
-      mBadge.className = "indicator-badge-inset " + (online || state.mode === "demo" ? (motorRun ? "online" : "offline") : "");
+      mBadge.textContent = isScaleMode
+        ? "MODE TIMBANGAN AKTIF"
+        : (!online && state.mode !== "demo" ? "PERANGKAT OFFLINE" : (motorRun ? "MOTOR BERJALAN" : "MOTOR BERHENTI"));
+      mBadge.className = "indicator-badge-inset " + (isScaleMode ? "offline" : (online || state.mode === "demo" ? (motorRun ? "online" : "offline") : ""));
     }
     if (mText) {
-      mText.textContent = motorRun
-        ? `Dinamo konveyor sedang berjalan aktif (Kecepatan PWM ${motorSpd || 255}).`
-        : "Dinamo konveyor dalam posisi berhenti (STOP).";
+      mText.textContent = isScaleMode
+        ? "Mode Timbangan Digital aktif. Dinamo motor dikunci mati demi keselamatan & akurasi timbangan."
+        : (motorRun
+          ? `Dinamo konveyor sedang berjalan aktif (Kecepatan PWM ${motorSpd || 255}).`
+          : "Dinamo konveyor dalam posisi berhenti (STOP).");
     }
     if (mState) {
-      mState.textContent = live === null ? "Tidak diketahui" : (motorRun ? "Berjalan (ON)" : "Berhenti (OFF)");
-      mState.style.color = live === null ? "var(--ink-body)" : (motorRun ? "var(--accent-status)" : "var(--accent-alert)");
+      mState.textContent = live === null ? "Tidak diketahui" : (isScaleMode ? "Terkunci (Mode Timbangan)" : (motorRun ? "Berjalan (ON)" : "Berhenti (OFF)"));
+      mState.style.color = live === null ? "var(--ink-body)" : (isScaleMode ? "var(--accent-alert)" : (motorRun ? "var(--accent-status)" : "var(--accent-alert)"));
     }
     if (mDetail) {
-      mDetail.textContent = live === null ? "Penggerak mekanik konveyor" : `Kecepatan PWM: ${motorSpd}`;
+      mDetail.textContent = live === null ? "Penggerak mekanik konveyor" : (isScaleMode ? "Motor di-lock OFF" : `Kecepatan PWM: ${motorSpd}`);
+    }
+
+    if ($("scaleLiveWeight")) {
+      $("scaleLiveWeight").textContent = Number.isFinite(wg) ? `${wg.toFixed(1)} g` : "0.0 g";
+    }
+
+    const lastScanned = live?.lastScannedUID ?? live?.lastUID;
+    if (lastScanned && lastScanned !== "-" && lastScanned !== state.scannedUid) {
+      state.scannedUid = lastScanned;
+      if ($("scaleScannedUid")) {
+        $("scaleScannedUid").textContent = lastScanned;
+      }
+      if ($("scaleUidStatus")) {
+        const existing = state.knnSamples.find(s => s.uid.toUpperCase() === lastScanned.toUpperCase());
+        if (existing) {
+          $("scaleUidStatus").textContent = `Terdaftar: ${existing.prod} (${existing.weight}g · ${existing.label})`;
+          $("scaleUidStatus").style.color = "var(--accent-status)";
+          if ($("scaleProdNameInput") && !$("scaleProdNameInput").value) {
+            $("scaleProdNameInput").value = existing.prod;
+          }
+          if ($("scaleJalurSelect")) {
+            $("scaleJalurSelect").value = String(existing.jalur);
+          }
+        } else {
+          $("scaleUidStatus").textContent = "Tag baru terdeteksi! Siap didaftarkan.";
+          $("scaleUidStatus").style.color = "var(--accent-primary)";
+        }
+      }
     }
   }
 
@@ -1168,14 +1238,218 @@
     renderDevice();
   });
 
+  /* ---------- Modul Pengaturan & Kalibrasi Timbangan (KNN Enrollment) ---------- */
+  function renderKnnTable() {
+    const tbody = $("knnDatasetTableBody");
+    const countEl = $("knnSampleCount");
+    if (countEl) countEl.textContent = state.knnSamples.length;
+    if (!tbody) return;
+
+    if (!state.knnSamples.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:14px; color:var(--ink-muted);">Belum ada sampel terdaftar.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = state.knnSamples.map((item, idx) => {
+      const jalurBadge = item.jalur === 0
+        ? '<span style="color:var(--accent-status); font-weight:600;">Jalur 1 (Ringan)</span>'
+        : item.jalur === 1
+        ? '<span style="color:var(--accent-primary); font-weight:600;">Jalur 2 (Sedang)</span>'
+        : '<span style="color:var(--accent-alert); font-weight:600;">Reject (Anomali)</span>';
+
+      return `<tr>
+        <td style="padding:6px 8px; font-weight:700;">${safe(item.uid)}</td>
+        <td style="padding:6px 8px;">${safe(item.prod)}</td>
+        <td style="padding:6px 8px;" class="tabular">${Number(item.weight).toFixed(1)} g</td>
+        <td style="padding:6px 8px;">${jalurBadge}</td>
+        <td style="padding:6px 8px; text-align:right;">
+          <button type="button" class="btn-util del-knn-btn" data-idx="${idx}" style="padding:2px 8px; font-size:10px;">Hapus</button>
+        </td>
+      </tr>`;
+    }).join("");
+
+    tbody.querySelectorAll(".del-knn-btn").forEach(btn => {
+      btn.addEventListener("click", e => {
+        const i = parseInt(e.currentTarget.dataset.idx, 10);
+        if (!isNaN(i) && i >= 0 && i < state.knnSamples.length) {
+          const removed = state.knnSamples.splice(i, 1);
+          saveKnnSamples(state.knnSamples);
+          showToast(`Sampel ${removed[0]?.uid} dihapus dari model`);
+        }
+      });
+    });
+  }
+
+  function saveKnnSamples(arr) {
+    state.knnSamples = arr;
+    try {
+      localStorage.setItem("stockflow_knn_samples", JSON.stringify(arr));
+    } catch (_) {}
+    renderKnnTable();
+  }
+
+  function openScaleModal() {
+    if ($("scaleModal")) {
+      $("scaleModal").hidden = false;
+      renderKnnTable();
+    }
+  }
+
+  function closeScaleModal() {
+    if ($("scaleModal")) $("scaleModal").hidden = true;
+  }
+
+  async function toggleScaleMode() {
+    const nextMode = !state.scaleMode;
+    state.scaleMode = nextMode;
+    if (nextMode) {
+      state.motorRunning = false;
+    }
+    renderDevice();
+
+    if (state.mode === "demo") {
+      showToast(nextMode ? "Mode Timbangan Aktif: Dinamo motor dinonaktifkan" : "Mode Konveyor Normal Aktif");
+      return;
+    }
+
+    try {
+      await patchFirebase("device/status/control", {
+        scaleMode: nextMode,
+        motor: false,
+        command: nextMode ? "scale_mode" : "conveyor_mode",
+        updatedAt: { ".sv": "timestamp" }
+      });
+      await patchFirebase("device/status", {
+        scaleMode: nextMode,
+        motorRunning: false
+      });
+      showToast(nextMode ? "Mode Timbangan Aktif: Dinamo motor dinonaktifkan" : "Mode Konveyor Normal Aktif");
+      setTimeout(load, 500);
+    } catch (e) {
+      showToast("Gagal mengubah mode: " + e.message);
+    }
+  }
+
+  async function tareScale() {
+    if (state.mode === "demo") {
+      if ($("simWeightSlider")) $("simWeightSlider").value = "0";
+      showToast("Timbangan di-reset ke 0.0g (Simulasi)");
+      if ($("scaleLiveWeight")) $("scaleLiveWeight").textContent = "0.0 g";
+      return;
+    }
+
+    try {
+      await patchFirebase("device/status/control", {
+        tare: true,
+        updatedAt: { ".sv": "timestamp" }
+      });
+      showToast("Perintah Tare (Nol-kan) terkirim ke ESP8266");
+      setTimeout(load, 700);
+    } catch (e) {
+      showToast("Gagal mengirim perintah tare: " + e.message);
+    }
+  }
+
+  async function saveCurrentKnnSample() {
+    const uid = ($("scaleScannedUid")?.textContent || "").trim();
+    if (!uid || uid === "Menunggu Scan..." || uid === "-") {
+      showToast("Tempelkan kartu RFID atau masukkan UID manual terlebih dahulu!");
+      return;
+    }
+
+    let w = Number(state.device?.weightGram);
+    if (!Number.isFinite(w) || w <= 0) {
+      if (state.mode === "demo") {
+        w = Number($("simWeightSlider")?.value) || 75.0;
+      } else {
+        const input = prompt(`Bobot sensor saat ini 0.0g. Masukkan nilai bobot (gram) untuk tag ${uid}:`, "75.0");
+        if (input === null) return;
+        w = parseFloat(input);
+        if (isNaN(w) || w <= 0) {
+          showToast("Nilai bobot tidak valid");
+          return;
+        }
+      }
+    }
+
+    const prod = ($("scaleProdNameInput")?.value || "").trim() || `Produk ${uid}`;
+    const jalur = parseInt($("scaleJalurSelect")?.value || "0", 10);
+    const label = jalur === 0 ? "Jalur 1 (Ringan)" : jalur === 1 ? "Jalur 2 (Sedang)" : "Reject (Anomali)";
+
+    const idx = state.knnSamples.findIndex(s => s.uid.toUpperCase() === uid.toUpperCase());
+    const sampleObj = {
+      uid: uid.toUpperCase(),
+      prod,
+      weight: Number(w.toFixed(1)),
+      jalur,
+      label,
+      timestamp: Date.now()
+    };
+
+    if (idx !== -1) {
+      state.knnSamples[idx] = sampleObj;
+    } else {
+      state.knnSamples.push(sampleObj);
+    }
+
+    saveKnnSamples(state.knnSamples);
+
+    if (state.mode !== "demo") {
+      try {
+        await patchFirebase(`knn_dataset/${uid.toUpperCase()}`, sampleObj);
+      } catch (_) {}
+    }
+
+    showToast(`Paket ${uid} (${w.toFixed(1)}g) terdaftar ke ${label}!`);
+    if ($("scaleUidStatus")) {
+      $("scaleUidStatus").textContent = `Terdaftar: ${prod} (${w.toFixed(1)}g · ${label})`;
+      $("scaleUidStatus").style.color = "var(--accent-status)";
+    }
+  }
+
+  // Event Listeners Kalibrasi & Modal
+  $("settingsBtn")?.addEventListener("click", openScaleModal);
+  $("closeScaleModalBtn")?.addEventListener("click", closeScaleModal);
+  $("scaleModal")?.addEventListener("click", e => {
+    if (e.target === $("scaleModal")) closeScaleModal();
+  });
+  $("toggleScaleModeBtn")?.addEventListener("click", toggleScaleMode);
+  $("scaleTareBtn")?.addEventListener("click", tareScale);
+  $("saveKnnSampleBtn")?.addEventListener("click", saveCurrentKnnSample);
+
+  $("setManualUidBtn")?.addEventListener("click", () => {
+    const val = ($("manualUidInput")?.value || "").trim().toUpperCase();
+    if (val) {
+      state.scannedUid = val;
+      if ($("scaleScannedUid")) $("scaleScannedUid").textContent = val;
+      if ($("scaleUidStatus")) $("scaleUidStatus").textContent = "UID manual siap didaftarkan";
+      showToast(`UID manual disetel: ${val}`);
+    }
+  });
+
+  $("clearKnnSamplesBtn")?.addEventListener("click", () => {
+    if (confirm("Reset seluruh data latih KNN ke set acuan awal?")) {
+      localStorage.removeItem("stockflow_knn_samples");
+      state.knnSamples = loadKnnSamples();
+      renderKnnTable();
+      showToast("Dataset KNN di-reset ke acuan awal");
+    }
+  });
+
   document.querySelectorAll(".nav, .m-pill").forEach(link => {
     link.addEventListener("click", () => setActiveNav(link.dataset.section));
   });
 
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !$("detailModal")?.hidden) {
-      closeDetailModal();
-      return;
+    if (e.key === "Escape") {
+      if (!$("scaleModal")?.hidden) {
+        closeScaleModal();
+        return;
+      }
+      if (!$("detailModal")?.hidden) {
+        closeDetailModal();
+        return;
+      }
     }
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (["input", "textarea", "select", "button"].includes(tag)) return;
@@ -1191,6 +1465,7 @@
   /* ---------- Inisialisasi ---------- */
   initTheme();
   updateWeightHint();
+  renderKnnTable();
   if (!cfg.demoMode && (!cfg.databaseURL || cfg.databaseURL.includes("NAMA-PROJECT"))) {
     state.mode = "demo";
   }
