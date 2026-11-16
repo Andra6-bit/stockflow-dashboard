@@ -669,6 +669,11 @@
   }
 
   async function setConveyorMotor(shouldRun, speed = 255) {
+    if (window.StockFlowAuth && !window.StockFlowAuth.isAdmin()) {
+      showToast("Aksi dibatasi: Hanya Administrator yang berwenang mengendalikan motor.");
+      return;
+    }
+
     updateMotorUI(shouldRun, speed);
 
     if (state.mode === "demo") {
@@ -1222,6 +1227,140 @@
     if (e.target === $("detailModal")) closeDetailModal();
   });
 
+  /* ---------- Logika Manajemen Pengguna (Sesi Admin) ---------- */
+  let selectedNewRole = "operator";
+
+  function openUserModal() {
+    if (!window.StockFlowAuth || !window.StockFlowAuth.isAdmin()) {
+      showToast("Akses ditolak: Hanya Administrator yang berwenang.");
+      return;
+    }
+    const m = $("userModal");
+    if (!m) return;
+    hideUserModalAlert();
+    renderUserManagementList();
+    m.hidden = false;
+    m.setAttribute("aria-hidden", "false");
+    $("newFullName")?.focus();
+  }
+
+  function closeUserModal() {
+    const m = $("userModal");
+    if (!m) return;
+    m.hidden = true;
+    m.setAttribute("aria-hidden", "true");
+    $("addUserForm")?.reset();
+    setRoleSelection("operator");
+    hideUserModalAlert();
+  }
+
+  function showUserModalAlert(msg, isError = true) {
+    const box = $("userModalAlert");
+    const txt = $("userModalAlertText");
+    if (!box || !txt) return;
+    txt.textContent = msg;
+    box.style.color = isError ? "var(--accent-alert)" : "var(--accent-status)";
+    box.style.borderLeftColor = isError ? "var(--accent-alert)" : "var(--accent-status)";
+    box.hidden = false;
+  }
+
+  function hideUserModalAlert() {
+    const box = $("userModalAlert");
+    if (box) box.hidden = true;
+  }
+
+  function setRoleSelection(role) {
+    selectedNewRole = role;
+    const isOp = role === "operator";
+    $("btnRoleOperator")?.classList.toggle("active", isOp);
+    $("btnRoleAdmin")?.classList.toggle("active", !isOp);
+  }
+
+  function renderUserManagementList() {
+    const container = $("userListContainer");
+    const countLabel = $("userCountLabel");
+    if (!container || !window.StockFlowAuth) return;
+
+    const users = window.StockFlowAuth.getUsers();
+    if (countLabel) {
+      countLabel.textContent = `${users.length} akun aktif`;
+    }
+
+    container.innerHTML = users.map(u => {
+      const isDefault = u.isDefault;
+      const isAdminRole = u.role === "admin";
+      return `
+        <div class="user-item-row">
+          <div class="user-item-meta">
+            <div class="user-item-name">
+              <span>${safe(u.name)}</span>
+              <span class="role-badge-tag ${isAdminRole ? 'admin' : 'operator'}">${safe(u.roleLabel)}</span>
+            </div>
+            <div class="user-item-sub">
+              Username: <strong style="color:var(--ink-heading); font-family:monospace;">${safe(u.username)}</strong>
+              ${isDefault ? '· <em>(Akun Utama Bawaan)</em>' : '· <em>(Akun Kustom)</em>'}
+            </div>
+          </div>
+          <div class="user-item-actions">
+            ${isDefault ? `
+              <span style="font-size: 11px; color: var(--ink-muted); padding: 4px 8px;">Terkunci</span>
+            ` : `
+              <button type="button" class="btn-delete-user" data-username="${safe(u.username)}" title="Hapus akun pengguna ini">
+                Hapus
+              </button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    container.querySelectorAll(".btn-delete-user").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const targetUser = btn.dataset.username;
+        if (!confirm(`Apakah Anda yakin ingin menghapus akun "${targetUser}"?`)) return;
+        const res = window.StockFlowAuth.deleteUser(targetUser);
+        if (res.success) {
+          showUserModalAlert(res.message, false);
+          showToast(res.message);
+          renderUserManagementList();
+        } else {
+          showUserModalAlert(res.message, true);
+        }
+      });
+    });
+  }
+
+  $("openUserModalBtn")?.addEventListener("click", openUserModal);
+  $("closeUserModalBtn")?.addEventListener("click", closeUserModal);
+  $("userModal")?.addEventListener("click", e => {
+    if (e.target === $("userModal")) closeUserModal();
+  });
+
+  $("btnRoleOperator")?.addEventListener("click", () => setRoleSelection("operator"));
+  $("btnRoleAdmin")?.addEventListener("click", () => setRoleSelection("admin"));
+
+  $("addUserForm")?.addEventListener("submit", e => {
+    e.preventDefault();
+    hideUserModalAlert();
+
+    const name = $("newFullName").value;
+    const username = $("newUsername").value;
+    const password = $("newPassword").value;
+    const role = selectedNewRole;
+
+    const res = window.StockFlowAuth.addUser({ name, username, password, role });
+    if (!res.success) {
+      showUserModalAlert(res.message, true);
+      return;
+    }
+
+    showUserModalAlert(res.message, false);
+    showToast(res.message);
+    $("addUserForm").reset();
+    setRoleSelection("operator");
+    renderUserManagementList();
+  });
+
   $("toggleRfidFaultBtn")?.addEventListener("click", e => {
     state.demoFaults.rfidErr = !state.demoFaults.rfidErr;
     e.currentTarget.classList.toggle("active", state.demoFaults.rfidErr);
@@ -1450,6 +1589,10 @@
         closeDetailModal();
         return;
       }
+      if (!$("userModal")?.hidden) {
+        closeUserModal();
+        return;
+      }
     }
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     if (["input", "textarea", "select", "button"].includes(tag)) return;
@@ -1463,6 +1606,18 @@
   });
 
   /* ---------- Inisialisasi ---------- */
+  if (window.StockFlowAuth) {
+    const activeUser = window.StockFlowAuth.getUser();
+    if (!activeUser) {
+      window.StockFlowAuth.requireAuth("login.html");
+      return;
+    }
+    window.StockFlowAuth.applyUIPermissions();
+    $("logoutBtn")?.addEventListener("click", () => {
+      window.StockFlowAuth.logout(true);
+    });
+  }
+
   initTheme();
   updateWeightHint();
   renderKnnTable();

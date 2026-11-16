@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#E6DDD3">
+  <title>Masuk · StockFlow IoT Kendali Konveyor</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600;1,9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="login-page-wrap">
+    <div class="login-bento-container">
+      
+      <!-- Topbar Mini: Logo & Theme Switcher -->
+      <header class="login-topbar">
+        <div class="brand-wrap">
+          <div class="brand-icon-box" title="StockFlow IoT Platform">
+            <img src="favicon.svg" alt="StockFlow Logo" class="brand-logo-img">
+          </div>
+          <div class="brand-meta">
+            <h1>StockFlow</h1>
+            <small>Autentikasi Pusat Kendali IoT</small>
+          </div>
+        </div>
+
+        <div>
+          <button type="button" class="btn-util" id="themeBtn" title="Ganti mode tampilan">
+            Mode Gelap
+          </button>
+        </div>
+      </header>
+
+      <!-- Asymmetric Bento Grid untuk Login & Info Akses -->
+      <main class="login-bento-grid">
+        
+        <!-- Bento Card 1: Formulir Autentikasi Utama -->
+        <section class="auth-card" aria-labelledby="loginHeading">
+          <div>
+            <div class="auth-card-head">
+              <h2 id="loginHeading">Masuk ke Sistem</h2>
+              <p>Masukkan kredensial resmi untuk mengoperasikan konveyor pintar dan memantau sensor bobot secara real-time.</p>
+            </div>
+
+            <!-- Pesan Kesalahan / Notifikasi Inset -->
+            <div class="auth-alert-inset" id="authAlert" role="alert" hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span id="authAlertText">Nama pengguna atau kata sandi tidak valid.</span>
+            </div>
+
+            <form class="auth-form" id="loginForm" autocomplete="on">
+              <div class="form-field">
+                <label for="usernameInput" class="form-label">Nama Pengguna</label>
+                <div class="bento-input-well">
+                  <input 
+                    type="text" 
+                    id="usernameInput" 
+                    class="bento-input" 
+                    name="username" 
+                    placeholder="Contoh: admin atau operator" 
+                    required 
+                    autocomplete="username" 
+                    autofocus
+                  >
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="passwordInput" class="form-label">Kata Sandi</label>
+                <div class="bento-input-well">
+                  <input 
+                    type="password" 
+                    id="passwordInput" 
+                    class="bento-input" 
+                    name="password" 
+                    placeholder="Masukkan kata sandi akun" 
+                    required 
+                    autocomplete="current-password"
+                  >
+                  <button type="button" class="btn-icon-subtle" id="togglePwBtn" aria-label="Tampilkan kata sandi">
+                    Lihat
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-options-row">
+                <label class="bento-checkbox-wrap">
+                  <input type="checkbox" id="rememberMeInput">
+                  <span>Ingat sesi di perangkat ini</span>
+                </label>
+                <span style="font-size: 12px; color: var(--ink-muted);">Protokol Aman</span>
+              </div>
+
+              <button type="submit" class="btn-cta btn-cta-primary" id="submitBtn" style="justify-content: center; width: 100%; margin-top: 6px;">
+                Masuk ke Dashboard
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Bento Card 2: Panduan Peran & Status Gerbang IoT -->
+        <aside class="auth-card" aria-label="Informasi Hak Akses Sistem">
+          <div class="auth-card-head">
+            <h2>Tingkatan Hak Akses</h2>
+            <p>Sistem kendali konveyor menerapkan pembagian peran operasional demi keselamatan fisik alat dan integritas data.</p>
+          </div>
+
+          <div class="role-info-card">
+            <!-- Inset Peran Administrator -->
+            <div class="role-info-inset">
+              <div class="role-header-row">
+                <h4>Administrator</h4>
+                <span class="role-badge-tag admin">Hak Penuh</span>
+              </div>
+              <p>Dikhususkan bagi teknisi lab atau kepala gudang dengan otoritas kontrol perangkat keras.</p>
+              <ul class="role-checklist">
+                <li>Kendali motor dinamo konveyor (Start / Stop)</li>
+                <li>Kalibrasi sensor beban &amp; atur ambang batas bobot</li>
+                <li>Uji simulasi kegagalan modul (RFID / Sensor / Jaringan)</li>
+                <li>Pergantian mode operasional (Live Firebase / Demo)</li>
+              </ul>
+            </div>
+
+            <!-- Inset Peran Operator -->
+            <div class="role-info-inset">
+              <div class="role-header-row">
+                <h4>Operator Gudang</h4>
+                <span class="role-badge-tag operator">Mode Pantau</span>
+              </div>
+              <p>Dikhususkan bagi staf pemilahan barang dan pencatat inventaris harian.</p>
+              <ul class="role-checklist">
+                <li>Pemantauan bobot live dari sensor load cell HX711</li>
+                <li>Pemindaian identitas produk melalui kartu RFID</li>
+                <li>Melihat riwayat log penimbangan dan ekspor data CSV</li>
+                <li><em>Proteksi tombol motor agar mesin tetap aman</em></li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Status Hardware & Protokol -->
+          <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--surface-shadow); display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: var(--ink-muted);">
+            <span>NodeMCU ESP8266 · REST API</span>
+            <span class="tabular">v1.1 Terautentikasi</span>
+          </div>
+        </aside>
+
+      </main>
+
+      <!-- Footer Standar -->
+      <footer style="margin-top: 28px; text-align: center; font-size: 12px; color: var(--ink-muted);">
+        StockFlow · Sistem Pemantauan Konveyor Pintar &amp; Pemilahan Barang Otomatis
+      </footer>
+    </div>
+  </div>
+
+  <!-- Toast Notifikasi Timbul -->
+  <div class="toast-bento" id="toast"></div>
+
+  <!-- Skrip Autentikasi & Logika Halaman -->
+  <script src="auth.js"></script>
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+
+      // Inisialisasi tema
+      const applyTheme = (theme) => {
+        document.documentElement.setAttribute("data-theme", theme);
+        if ($("themeBtn")) {
+          $("themeBtn").textContent = theme === "dark" ? "Mode Terang" : "Mode Gelap";
+        }
+        localStorage.setItem("stockflow-theme", theme);
+      };
+
+      const currentTheme = localStorage.getItem("stockflow-theme") || "light";
+      applyTheme(currentTheme);
+
+      $("themeBtn")?.addEventListener("click", () => {
+        const now = document.documentElement.getAttribute("data-theme") || "light";
+        applyTheme(now === "dark" ? "light" : "dark");
+      });
+
+      // Tampilkan notifikasi toast neumorphic
+      let toastTimer = null;
+      function showToast(msg) {
+        const t = $("toast");
+        if (!t) return;
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+      }
+
+      // Audio feedback taktil lembut
+      let audioCtx = null;
+      function playFeedback(type = "click") {
+        try {
+          if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          if (type === "success") {
+            osc.frequency.setValueAtTime(520, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(780, audioCtx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.14);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+          } else if (type === "error") {
+            osc.frequency.setValueAtTime(260, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+          } else {
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+          }
+        } catch (_) {}
+      }
+
+      // Toggle tampil/sembunyi kata sandi
+      const pwInput = $("passwordInput");
+      const togglePwBtn = $("togglePwBtn");
+      togglePwBtn?.addEventListener("click", () => {
+        playFeedback("click");
+        const isPw = pwInput.type === "password";
+        pwInput.type = isPw ? "text" : "password";
+        togglePwBtn.textContent = isPw ? "Tutup" : "Lihat";
+        togglePwBtn.setAttribute("aria-label", isPw ? "Sembunyikan kata sandi" : "Tampilkan kata sandi");
+      });
+
+      // Alert helper
+      const alertBox = $("authAlert");
+      const alertText = $("authAlertText");
+      function showAlert(msg) {
+        if (!alertBox || !alertText) return;
+        alertText.textContent = msg;
+        alertBox.hidden = false;
+        playFeedback("error");
+      }
+      function hideAlert() {
+        if (alertBox) alertBox.hidden = true;
+      }
+
+      // Jika pengguna sudah login sebelumnya, tawarkan langsung masuk ke dashboard
+      const existingUser = window.StockFlowAuth?.getUser();
+      if (existingUser) {
+        showToast("Sesi aktif terdeteksi sebagai " + existingUser.name);
+      }
+
+      // Handler Submit Form
+      $("loginForm")?.addEventListener("submit", e => {
+        e.preventDefault();
+        hideAlert();
+
+        const userVal = $("usernameInput").value;
+        const passVal = $("passwordInput").value;
+        const rememberVal = $("rememberMeInput").checked;
+
+        const res = window.StockFlowAuth.login(userVal, passVal, rememberVal);
+        if (!res.success) {
+          showAlert(res.message);
+          return;
+        }
+
+        playFeedback("success");
+        showToast("Autentikasi berhasil. Mengalihkan ke dashboard...");
+        
+        // Cek target redirect
+        const target = sessionStorage.getItem("stockflow_redirect_target") || "index.html";
+        sessionStorage.removeItem("stockflow_redirect_target");
+
+        setTimeout(() => {
+          window.location.replace(target);
+        }, 600);
+      });
+    })();
+  </script>
+</body>
+</html>
