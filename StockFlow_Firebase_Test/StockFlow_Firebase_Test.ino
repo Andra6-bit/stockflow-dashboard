@@ -60,9 +60,9 @@ const char* FIREBASE_URL =
 // =====================================
 // SUDUT SERVO DIVERTER
 // =====================================
-#define SERVO_STANDBY 90
-#define SERVO_JALUR1  45
-#define SERVO_JALUR2  135
+#define SERVO_STANDBY 90   // Posisi Lurus (Lengan menempel dinding, paket lolos ke ujung)
+#define SERVO_JALUR1  135  // Belok Samping (Lengan menyerong ke dalam konveyor)
+#define SERVO_JALUR2  90   // Lolos Lurus ke Ujung Konveyor (Lengan tetap di dinding)
 
 // Konfigurasi sortir otomatis saat scan RFID
 const bool SERVO_MOVE_ON_SCAN = true;
@@ -512,17 +512,17 @@ void handleSerial() {
 
     case '3':
       moveServo(SERVO_JALUR1, "jalur1");
-      Serial.println(">>> [SERVO] Belok Kiri (45° Jalur 1)");
+      Serial.println(">>> [SERVO] Menyerong ke Dalam (135° Jalur 1 - Belok Samping)");
       break;
 
     case '4':
       servoToStandby();
-      Serial.println(">>> [SERVO] Posisi Tengah/Netral (90° Standby)");
+      Serial.println(">>> [SERVO] Menempel Dinding (90° Standby / Jalur 2 - Lolos Lurus)");
       break;
 
     case '5':
-      moveServo(SERVO_JALUR2, "jalur2");
-      Serial.println(">>> [SERVO] Belok Kanan (135° Jalur 2)");
+      moveServo(SERVO_JALUR1, "jalur1");
+      Serial.println(">>> [SERVO] Menyerong ke Dalam (135° Jalur 1 - Belok Samping)");
       break;
 
     case 't':
@@ -588,9 +588,9 @@ void handleSerial() {
       Serial.println(" [1] Dinamo Konveyor JALAN (Kecepatan Penuh 255)");
       Serial.println(" [2] Dinamo Konveyor JALAN PELAN (PWM 160)");
       Serial.println(" [0] Dinamo Konveyor BERHENTI (STOP)");
-      Serial.println(" [3] Servo Belok KIRI (45° Jalur 1)");
-      Serial.println(" [4] Servo Posisi TENGAH (90° Standby)");
-      Serial.println(" [5] Servo Belok KANAN (135° Jalur 2)");
+      Serial.println(" [3] Servo Menyerong ke Dalam (135° Belok Samping)");
+      Serial.println(" [4] Servo Menempel Dinding (90° Standby / Lolos Lurus)");
+      Serial.println(" [5] Servo Menyerong ke Dalam (135° Belok Samping)");
       Serial.println(" [m] Toggle Mode Timbangan / Mode Konveyor");
       Serial.println(" [w] Catat Log Beban Saja ke Firebase");
       Serial.println(" [t] Tare / Reset Timbangan ke 0.0 gram");
@@ -802,15 +802,15 @@ void loop() {
 
         // 3. INFERENSI EDGE AI (MODEL KNN)
         int hasilKelas = predictKNN(grams, 3);
-        String statusStr = "Valid - Jalur 1";
+        String statusStr = "Valid - Jalur 1 (Belok Samping)";
         int targetAngle = SERVO_STANDBY;
 
         if (hasilKelas == 0) {
-          statusStr = "Valid - Jalur 1";
-          targetAngle = SERVO_JALUR1; // 45° (Paket Ringan)
+          statusStr = "Valid - Jalur 1 (Belok Samping)";
+          targetAngle = SERVO_JALUR1; // 135° (Paket Ringan belok ke samping)
         } else if (hasilKelas == 1) {
-          statusStr = "Valid - Jalur 2";
-          targetAngle = SERVO_JALUR2; // 135° (Paket Sedang)
+          statusStr = "Valid - Jalur 2 (Lolos Lurus)";
+          targetAngle = SERVO_JALUR2; // 90° (Paket Sedang lolos lurus ke ujung)
         } else {
           statusStr = "Reject / Anomali";
           targetAngle = SERVO_STANDBY; // 90° (Anomali / di luar batas)
