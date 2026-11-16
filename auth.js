@@ -232,7 +232,22 @@
 
     isAdmin() {
       const user = this.getUser();
-      return user && user.role === "admin";
+      return !!(user && user.role === "admin");
+    },
+
+    isOperator() {
+      const user = this.getUser();
+      return !!(user && user.role === "operator");
+    },
+
+    canControlMotor() {
+      const user = this.getUser();
+      return !!(user && (user.role === "admin" || user.role === "operator"));
+    },
+
+    canOperate() {
+      const user = this.getUser();
+      return !!(user && (user.role === "admin" || user.role === "operator"));
     },
 
     // Proses login kredensial
@@ -321,42 +336,83 @@
     applyUIPermissions() {
       const user = this.getUser();
       const isGuestMode = !user && this.isGuest();
-      const isOp = isGuestMode || (user && user.role === "operator");
-      const isAdmin = user && user.role === "admin";
+      const isOperator = !!(user && user.role === "operator");
+      const isAdmin = !!(user && user.role === "admin");
 
-      // Elemen yang hanya boleh diakses Admin
+      // 1. Kendali Motor Konveyor: Bisa diakses oleh Operator dan Admin. Tamu dilarang (Read-Only).
+      const motorBtnIds = ["motorStartBtn", "motorStopBtn"];
+      motorBtnIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (isAdmin || isOperator) {
+          el.disabled = false;
+          el.removeAttribute("title");
+          el.style.opacity = "1";
+          el.style.cursor = "pointer";
+        } else {
+          el.disabled = true;
+          el.setAttribute("title", "Mode Tamu bersifat Read-Only. Masuk sebagai Operator atau Admin untuk mengendalikan konveyor.");
+          el.style.opacity = "0.45";
+          el.style.cursor = "not-allowed";
+        }
+      });
+
+      // 2. Operasional standar (Catat Log, Simulasi): Admin & Operator bisa, Tamu dilarang
+      const opBtnIds = ["logWeightQuickBtn", "logWeightTableBtn", "runSimBtn", "autoSimBtn"];
+      opBtnIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (isAdmin || isOperator) {
+          el.disabled = false;
+          el.removeAttribute("title");
+          el.style.opacity = "1";
+          el.style.cursor = "pointer";
+        } else {
+          el.disabled = true;
+          el.setAttribute("title", "Mode Tamu bersifat Read-Only.");
+          el.style.opacity = "0.45";
+          el.style.cursor = "not-allowed";
+        }
+      });
+
+      // 3. Fitur Khusus Administrator: Pengaturan & Kalibrasi Timbangan, Pergantian Mode, dan Uji Fault
       const adminOnlyIds = [
-        "motorStartBtn",
-        "motorStopBtn",
+        "settingsBtn",
+        "topLiveBtn",
+        "topDemoBtn",
         "toggleRfidFaultBtn",
         "toggleScaleFaultBtn",
-        "toggleWeakWifiBtn",
-        "topLiveBtn",
-        "topDemoBtn"
+        "toggleWeakWifiBtn"
       ];
 
       adminOnlyIds.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        if (!isAdmin) {
-          el.disabled = true;
-          el.setAttribute("title", "Akses dibatasi: Hanya Administrator yang berwenang.");
-          el.style.opacity = "0.45";
-          el.style.cursor = "not-allowed";
-        } else {
+        if (isAdmin) {
           el.disabled = false;
+          el.removeAttribute("title");
           el.style.opacity = "1";
           el.style.cursor = "pointer";
+        } else {
+          el.disabled = true;
+          el.setAttribute(
+            "title",
+            isOperator
+              ? "Akses dibatasi: Hanya Administrator yang berwenang."
+              : "Mode Tamu bersifat Read-Only (Hanya mode tampilan dan suara yang aktif)."
+          );
+          el.style.opacity = "0.45";
+          el.style.cursor = "not-allowed";
         }
       });
 
-      // Tombol Kelola Pengguna (hanya tampil untuk Admin)
+      // 4. Tombol Kelola Pengguna: Hanya tampil untuk Admin
       const userManageBtn = document.getElementById("openUserModalBtn");
       if (userManageBtn) {
         userManageBtn.style.display = isAdmin ? "inline-flex" : "none";
       }
 
-      // Tampilkan info peran di header jika container tersedia
+      // 5. Header status chip (Lencana pengguna & tombol Masuk/Keluar)
       const roleBadge = document.getElementById("userRoleBadge");
       const nameLabel = document.getElementById("userNameLabel");
       const logoutBtn = document.getElementById("logoutBtn");
@@ -379,7 +435,7 @@
       } else if (user) {
         if (roleBadge) {
           roleBadge.textContent = user.roleLabel;
-          roleBadge.className = "user-role-badge " + (user.role === "admin" ? "badge-admin" : "badge-operator");
+          roleBadge.className = "user-role-badge " + (isAdmin ? "badge-admin" : "badge-operator");
         }
         if (nameLabel) {
           nameLabel.textContent = user.name;

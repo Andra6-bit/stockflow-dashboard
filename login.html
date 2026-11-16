@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600;1,9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=1.3">
+  <link rel="stylesheet" href="style.css?v=1.4">
 </head>
 <body>
   <div class="login-page-wrap">
@@ -124,27 +124,41 @@
                 <h4>Administrator</h4>
                 <span class="role-badge-tag admin">Hak Penuh</span>
               </div>
-              <p>Dikhususkan bagi teknisi lab atau kepala gudang dengan otoritas kontrol perangkat keras.</p>
+              <p>Otoritas penuh: kendali motor, kalibrasi timbangan, manajemen pengguna, dan konfigurasi sistem.</p>
               <ul class="role-checklist">
                 <li>Kendali motor dinamo konveyor (Start / Stop)</li>
-                <li>Kalibrasi sensor beban &amp; atur ambang batas bobot</li>
-                <li>Uji simulasi kegagalan modul (RFID / Sensor / Jaringan)</li>
-                <li>Pergantian mode operasional (Live Firebase / Demo)</li>
+                <li>Kalibrasi sensor beban &amp; latih dataset KNN</li>
+                <li>Pendaftaran &amp; kelola akun staf pengguna</li>
+                <li>Pergantian mode operasional (Live / Demo)</li>
               </ul>
             </div>
 
             <!-- Inset Peran Operator -->
             <div class="role-info-inset">
               <div class="role-header-row">
-                <h4>Operator Gudang</h4>
-                <span class="role-badge-tag operator">Mode Pantau</span>
+                <h4>Operator Konveyor</h4>
+                <span class="role-badge-tag operator">Kendali &amp; Catat</span>
               </div>
-              <p>Dikhususkan bagi staf pemilahan barang dan pencatat inventaris harian.</p>
+              <p>Otoritas operasional: menyalakan &amp; mematikan motor konveyor serta mencatat inventaris.</p>
               <ul class="role-checklist">
-                <li>Pemantauan bobot live dari sensor load cell HX711</li>
-                <li>Pemindaian identitas produk melalui kartu RFID</li>
-                <li>Melihat riwayat log penimbangan dan ekspor data CSV</li>
-                <li><em>Proteksi tombol motor agar mesin tetap aman</em></li>
+                <li>Kendali motor dinamo konveyor (Start / Stop)</li>
+                <li>Pemantauan bobot live &amp; pemindaian tag RFID</li>
+                <li>Pencatatan log penimbangan &amp; ekspor data</li>
+                <li><em>Proteksi: Tidak dapat mengubah kalibrasi alat</em></li>
+              </ul>
+            </div>
+
+            <!-- Inset Mode Tamu -->
+            <div class="role-info-inset">
+              <div class="role-header-row">
+                <h4>Tamu / Publik</h4>
+                <span class="role-badge-tag" style="background:var(--surface-shadow); color:var(--ink-heading);">Read Only</span>
+              </div>
+              <p>Hak pantau bebas: hanya dapat melihat data tanpa wewenang mengubah pengaturan alat.</p>
+              <ul class="role-checklist">
+                <li>Pemantauan visual live sensor dan grafik konveyor</li>
+                <li>Akses pengaturan mode tampilan (Tema) &amp; suara</li>
+                <li><em>Seluruh tombol kendali &amp; konfigurasi terkunci</em></li>
               </ul>
             </div>
           </div>
@@ -169,7 +183,7 @@
   <div class="toast-bento" id="toast"></div>
 
   <!-- Skrip Autentikasi & Logika Halaman -->
-  <script src="auth.js?v=1.3"></script>
+  <script src="auth.js?v=1.4"></script>
   <script>
     (() => {
       const $ = id => document.getElementById(id);

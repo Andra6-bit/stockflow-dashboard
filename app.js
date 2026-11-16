@@ -210,6 +210,10 @@
   }
 
   function switchMode(nextMode, silent = false) {
+    if (!silent && window.StockFlowAuth && !window.StockFlowAuth.isAdmin()) {
+      showToast("Aksi dibatasi: Hanya Administrator yang berwenang mengganti mode sistem.");
+      return;
+    }
     if (state.mode === nextMode) return;
     state.mode = nextMode;
     if (nextMode === "live" && state.autoStream) toggleAutoStream(false);
@@ -669,8 +673,8 @@
   }
 
   async function setConveyorMotor(shouldRun, speed = 255) {
-    if (window.StockFlowAuth && !window.StockFlowAuth.isAdmin()) {
-      showToast("Aksi dibatasi: Hanya Administrator yang berwenang mengendalikan motor.");
+    if (window.StockFlowAuth && !window.StockFlowAuth.canControlMotor()) {
+      showToast("Aksi dibatasi: Masuk sebagai Operator atau Administrator untuk kendali motor.");
       return;
     }
 
@@ -702,6 +706,10 @@
   }
 
   async function logWeightOnly() {
+    if (window.StockFlowAuth && !window.StockFlowAuth.canOperate()) {
+      showToast("Aksi dibatasi: Mode Tamu bersifat Read-Only.");
+      return;
+    }
     let weight = Number(state.device?.weightGram);
     if (!Number.isFinite(weight) || weight <= 0) {
       if (state.mode === "demo") {
@@ -828,6 +836,10 @@
   }
 
   function runPackageSimulation(customPacket = null) {
+    if (window.StockFlowAuth && !window.StockFlowAuth.canOperate()) {
+      showToast("Aksi dibatasi: Mode Tamu bersifat Read-Only.");
+      return;
+    }
     if (state.simBusy) return;
     if (state.mode !== "demo") {
       switchMode("demo", true);
@@ -972,6 +984,10 @@
   }
 
   function toggleAutoStream(force) {
+    if (window.StockFlowAuth && !window.StockFlowAuth.canOperate()) {
+      showToast("Aksi dibatasi: Mode Tamu bersifat Read-Only.");
+      return;
+    }
     const next = typeof force === "boolean" ? force : !state.autoStream;
     state.autoStream = next;
     clearInterval(state.autoTimer);
@@ -1428,6 +1444,10 @@
   }
 
   function openScaleModal() {
+    if (window.StockFlowAuth && !window.StockFlowAuth.isAdmin()) {
+      showToast("Akses dibatasi: Hanya Administrator yang berwenang membuka kalibrasi timbangan.");
+      return;
+    }
     if ($("scaleModal")) {
       $("scaleModal").hidden = false;
       renderKnnTable();
