@@ -453,6 +453,58 @@
     </div>
   </div>
 
+  <!-- Modal Peringatan Anomali / Emergency QC Stop -->
+  <div class="modal-overlay" id="anomalyModal" hidden aria-hidden="true">
+    <div class="modal-bento-card" style="max-width: 520px; border: 2px solid var(--accent-alert); box-shadow: 0 12px 36px rgba(168, 67, 56, 0.25);" role="dialog" aria-modal="true" aria-labelledby="anomalyModalTitle">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:12px; background:rgba(168, 67, 56, 0.15); color:var(--accent-alert); display:grid; place-items:center; font-size:22px; flex-shrink:0;">
+            ⚠️
+          </div>
+          <div>
+            <h3 id="anomalyModalTitle" style="margin:0 0 2px 0; font-size:18px; color:var(--accent-alert); font-weight:700;">Peringatan: Anomali Terdeteksi!</h3>
+            <span style="font-size:11px; font-weight:700; color:var(--accent-alert); text-transform:uppercase; letter-spacing:0.5px;">Konveyor Dihentikan (QC Emergency Stop)</span>
+          </div>
+        </div>
+        <button type="button" class="btn-util" id="closeAnomalyModalBtn" aria-label="Tutup peringatan" style="padding:6px 12px; font-size:14px;">✕</button>
+      </div>
+
+      <div style="background:var(--surface); box-shadow:var(--nm-inset-sm); border-radius:var(--radius-elem); padding:16px; margin-bottom:18px;">
+        <p style="margin:0 0 14px 0; font-size:13px; line-height:1.55; color:var(--ink-heading); font-weight:500;">
+          Mesin mendeteksi paket dengan bobot di luar rentang standar kualitas (*outlier*). <strong>Mohon untuk segera mengambil paket dari atas konveyor</strong> sebelum melanjutkan operasional mesin.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+          <div style="background:var(--surface); border:var(--subtle-border); border-radius:8px; padding:10px;">
+            <span style="color:var(--ink-muted); display:block; font-size:10px; text-transform:uppercase; margin-bottom:2px;">Tag RFID</span>
+            <strong id="anomalyUid" class="tabular" style="font-size:14px; color:var(--ink-heading);">-</strong>
+          </div>
+          <div style="background:var(--surface); border:var(--subtle-border); border-radius:8px; padding:10px;">
+            <span style="color:var(--ink-muted); display:block; font-size:10px; text-transform:uppercase; margin-bottom:2px;">Bobot Terukur</span>
+            <strong id="anomalyWeight" class="tabular" style="font-size:14px; color:var(--accent-alert);">- g</strong>
+          </div>
+          <div style="background:var(--surface); border:var(--subtle-border); border-radius:8px; padding:10px;">
+            <span style="color:var(--ink-muted); display:block; font-size:10px; text-transform:uppercase; margin-bottom:2px;">Kategori / Produk</span>
+            <strong id="anomalyProduct" style="font-size:12px; color:var(--ink-heading);">-</strong>
+          </div>
+          <div style="background:var(--surface); border:var(--subtle-border); border-radius:8px; padding:10px;">
+            <span style="color:var(--ink-muted); display:block; font-size:10px; text-transform:uppercase; margin-bottom:2px;">Waktu Terdeteksi</span>
+            <strong id="anomalyTime" style="font-size:12px; color:var(--ink-heading);">-</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <button type="button" class="btn-util" id="dismissAnomalyBtn" style="padding:9px 16px; font-size:12px; font-weight:600;">
+          Tutup Peringatan
+        </button>
+        <button type="button" class="btn-cta btn-cta-primary" id="resumeConveyorBtn" style="padding:9px 18px; font-size:12px; font-weight:700; background:var(--accent-status); border-color:var(--accent-status);">
+          Paket Sudah Diambil (Nyalakan Motor)
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Pengaturan & Kalibrasi Timbangan (Tersembunyi secara default) -->
   <div class="modal-overlay" id="scaleModal" hidden aria-hidden="true">
     <div class="modal-bento-card modal-bento-card-large" role="dialog" aria-modal="true" aria-labelledby="scaleModalTitle">

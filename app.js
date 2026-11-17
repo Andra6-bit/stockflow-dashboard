@@ -780,6 +780,7 @@
         $("bannerDesc").textContent = "Menunggu data dari ESP8266. Anda dapat menguji dashboard melalui Mode Simulasi.";
       }
       render();
+      checkNewAnomalyAlert();
     } catch (e) {
       setConnection(false, "DISCONNECTED", e.message);
       if ($("connectBanner")) {
@@ -944,6 +945,9 @@
       state.newestKey = state.logs[0]?._id || null;
       render();
       showToast(`${uid} (${finalWeight.toFixed(1)}g) → ${isValid ? "VALID" : "ANOMALI / REJECT"}`);
+      if (!isValid) {
+        showAnomalyModal(record);
+      }
     }, 1180);
 
     // Reset posisi
@@ -1074,6 +1078,66 @@
       $("detailModal").hidden = true;
       $("detailModal").setAttribute("aria-hidden", "true");
     }
+  }
+
+  /* ---------- Modal Peringatan Anomali (Emergency QC Stop) ---------- */
+  let lastAlertedAnomalyId = null;
+  let initialSyncDone = false;
+
+  function showAnomalyModal(item) {
+    if (!item) return;
+    const modal = $("anomalyModal");
+    if (!modal) return;
+
+    if ($("anomalyUid")) $("anomalyUid").textContent = uidOf(item);
+    const w = weightOf(item);
+    if ($("anomalyWeight")) $("anomalyWeight").textContent = Number.isFinite(w) ? w.toFixed(1) + " g" : "-";
+    if ($("anomalyProduct")) $("anomalyProduct").textContent = productOf(item);
+    if ($("anomalyTime")) $("anomalyTime").textContent = fmtTime(item._time ?? item.Timestamp);
+
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+
+    if (state.soundOn) {
+      sfxReject();
+      setTimeout(() => {
+        playTone(220, 0.28, "sawtooth", 0.05, 0);
+      }, 200);
+    }
+  }
+
+  function closeAnomalyModal() {
+    const modal = $("anomalyModal");
+    if (modal) {
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  async function handleAnomalyResume() {
+    closeAnomalyModal();
+    if (window.StockFlowAuth && !window.StockFlowAuth.canControlMotor()) {
+      showToast("Peringatan ditutup. Hubungi Operator atau Administrator untuk menyalakan motor.");
+      return;
+    }
+    showToast("Paket diambil. Menjalankan konveyor kembali...");
+    await setConveyorMotor(true, 255);
+  }
+
+  function checkNewAnomalyAlert() {
+    if (!state.logs || !state.logs.length) return;
+    const latest = state.logs[0];
+    if (statusOf(latest) === "reject") {
+      if (lastAlertedAnomalyId !== latest._id) {
+        const logAge = latest._time ? (Date.now() - latest._time) : 0;
+        // Tampilkan pop-up jika anomali baru terdeteksi dalam sesi aktif atau terjadi dalam 60 detik terakhir
+        if (initialSyncDone || logAge < 60000) {
+          showAnomalyModal(latest);
+        }
+        lastAlertedAnomalyId = latest._id;
+      }
+    }
+    initialSyncDone = true;
   }
 
   function exportCsv() {
@@ -1241,6 +1305,12 @@
   $("closeModalBtn")?.addEventListener("click", closeDetailModal);
   $("detailModal")?.addEventListener("click", e => {
     if (e.target === $("detailModal")) closeDetailModal();
+  });
+  $("closeAnomalyModalBtn")?.addEventListener("click", closeAnomalyModal);
+  $("dismissAnomalyBtn")?.addEventListener("click", closeAnomalyModal);
+  $("resumeConveyorBtn")?.addEventListener("click", handleAnomalyResume);
+  $("anomalyModal")?.addEventListener("click", e => {
+    if (e.target === $("anomalyModal")) closeAnomalyModal();
   });
 
   /* ---------- Logika Manajemen Pengguna (Sesi Admin) ---------- */
@@ -1601,6 +1671,10 @@
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
+      if (!$("anomalyModal")?.hidden) {
+        closeAnomalyModal();
+        return;
+      }
       if (!$("scaleModal")?.hidden) {
         closeScaleModal();
         return;

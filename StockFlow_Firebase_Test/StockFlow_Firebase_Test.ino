@@ -41,8 +41,8 @@
 // =====================================
 // KONFIGURASI JARINGAN & FIREBASE
 // =====================================
-const char* WIFI_SSID     = "Infinix HOT 50 Pro+";
-const char* WIFI_PASSWORD = "zulfalanang";
+const char* WIFI_SSID     = "koshub";
+const char* WIFI_PASSWORD = "kmzway87aa";
 
 const char* FIREBASE_URL =
   "https://stockflow-iot-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -74,7 +74,9 @@ const unsigned long PUSH_INTERVAL         = 3000; // Heartbeat status + berat li
 const unsigned long PUSH_INTERVAL_SCALE   = 700;  // Streaming cepat saat mode timbangan aktif
 const unsigned long CONTROL_POLL_INTERVAL = 1500; // Cek perintah motor dari Firebase
 const unsigned long READ_COOLDOWN         = 2000; // Jeda minimal antar pembacaan RFID
-const unsigned long SETTLE_MS             = 400;  // Waktu timbangan stabil saat barang berhenti
+const unsigned long ALIGN_MS              = 350;  // Waktu geser paket dari RFID ke tengah timbangan
+const unsigned long SETTLE_MS             = 400;  // Waktu timbangan stabil saat barang berhenti (redam getaran)
+const unsigned long DISCHARGE_MS          = 1100; // Waktu dorong paket melewati area sortir
 
 // =====================================
 // KALIBRASI HX711 & EEPROM
@@ -782,7 +784,7 @@ void loop() {
         Serial.println(">>> Menyelaraskan posisi paket ke tengah timbangan (2 cm)...");
 
         // 1. Jeda sekejap saat motor jalan agar badan paket duduk pas di atas timbangan
-        delay(350);
+        delay(ALIGN_MS);
 
         // 2. Hentikan motor sejenak agar penimbangan presisi tanpa getaran dinamo
         digitalWrite(MOTOR_IN1, LOW);
@@ -816,9 +818,18 @@ void loop() {
           targetAngle = SERVO_STANDBY; // 90° (Anomali / cacat bobot)
         }
 
-        // 4. Gerakkan servo pemilah (jika jalur belok samping)
-        if (SERVO_MOVE_ON_SCAN && servoOK && targetAngle != SERVO_STANDBY) {
-          moveServo(targetAngle, "sorting");
+        // 4. Gerakkan servo pemilah HANYA jika target sudut berbeda dengan posisi saat ini (Latching Diverter)
+        if (SERVO_MOVE_ON_SCAN && servoOK) {
+          if (servoAngle != targetAngle) {
+            Serial.print(">>> [SERVO] Mengubah posisi bilah diverter ke: ");
+            Serial.print(targetAngle);
+            Serial.println("°");
+            moveServo(targetAngle, (targetAngle == SERVO_STANDBY) ? "standby" : "sorting");
+          } else {
+            Serial.print(">>> [SERVO] Posisi diverter sudah sesuai (");
+            Serial.print(servoAngle);
+            Serial.println("°), mempertahankan posisi (Latching).");
+          }
         }
         scanCounter++;
 
@@ -832,7 +843,9 @@ void loop() {
           setMotor(false, 0);
           sendFirebase("/device/status/control", "PATCH", "{\"motor\":false,\"command\":\"stop\"}");
           Serial.println(">>> [QC STOP] Anomali terdeteksi! Motor dihentikan untuk inspeksi manual.");
-          servoToStandby();
+          if (servoAngle != SERVO_STANDBY) {
+            servoToStandby();
+          }
         } else {
           // PAKET VALID (Jalur 1 atau Jalur 2):
           // Jalankan kembali motor untuk meloloskan paket ke wadah tujuan
@@ -841,10 +854,17 @@ void loop() {
           } else {
             analogWrite(MOTOR_IN1, motorSpeed);
           }
-          delay(1100); // Waktu barang terdorong melewati area sortir
+          delay(DISCHARGE_MS); // Waktu barang terdorong melewati area sortir
 
-          // Kembalikan servo ke posisi standby menempel dinding
-          servoToStandby();
+          // ============================================================
+          // PENTING (LOGIKA LATCHING SERVO):
+          // Servo SENGAJA TIDAK dikembalikan ke standby di sini!
+          // Bilah diverter dibiarkan tetap di posisinya (135° atau 90°)
+          // agar paket meluncur tuntas sampai jatuh ke wadah samping
+          // tanpa tersangkut atau tersenggol bilah servo yang menutup terlalu cepat.
+          // Posisi servo akan dipertahankan sampai ada paket berikutnya yang
+          // memerlukan jalur/sudut berbeda.
+          // ============================================================
         }
 
         // 8. Buka gembok transaksi
